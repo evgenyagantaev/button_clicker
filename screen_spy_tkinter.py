@@ -4,30 +4,35 @@ import time
 import threading
 import PIL.ImageGrab as ImageGrab
 from PIL import Image, ImageTk
+import sys
 
 class ScreenSpy:
     def __init__(self, root):
         self.root = root
         self.root.title("Screen Spy")
         # Setting a smaller window size similar to screenshot
-        self.root.geometry("400x300")
+        self.root.geometry("450x350")
+        
+        # Initialize status_var
+        self.status_var = tk.StringVar()
+        
+        # Apply dark theme
+        self.apply_dark_theme()
         
         # Default screenshot area based on the values in the screenshot
-        self.x1, self.y1, self.x2, self.y2 = 1830, 865, 1900, 885
+        self.x1, self.y1, self.x2, self.y2 = 1830, 880, 1900, 907
         
         # Create control frame
         self.create_control_panel()
         
         # Create image display
-        self.image_frame = ttk.Frame(self.root)
+        self.image_frame = ttk.Frame(self.root, style="ImageFrame.TFrame")
         self.image_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        self.image_label = ttk.Label(self.image_frame)
-        self.image_label.pack(fill=tk.BOTH, expand=True)
+        self.image_label = ttk.Label(self.image_frame, style="Image.TLabel")
+        self.image_label.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
         
         # Create status bar
-        self.status_var = tk.StringVar()
-        self.status_bar = ttk.Label(self.root, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W)
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
         
         # Flag to control screenshot thread
@@ -43,6 +48,103 @@ class ScreenSpy:
         
         # Setup window close event
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+    
+    def apply_dark_theme(self):
+        """Apply dark theme to the application"""
+        # Configure the main theme colors
+        bg_color = "#2d2d2d"
+        fg_color = "#d4d4d4"
+        highlight_color = "#2a7ada"
+        input_bg_color = "#1a1a1a"
+        
+        # Configure root window background
+        self.root.configure(bg=bg_color)
+        
+        # Create and configure ttk style
+        style = ttk.Style()
+        
+        # Try to use 'clam' theme as base (works well for dark themes)
+        try:
+            style.theme_use('clam')
+        except tk.TclError:
+            pass  # If 'clam' is not available, continue with default
+        
+        # Configure common elements
+        style.configure('TFrame', background=bg_color)
+        style.configure('TLabel', background=bg_color, foreground=fg_color)
+        style.configure('TLabelframe', background=bg_color, foreground=fg_color)
+        style.configure('TLabelframe.Label', background=bg_color, foreground=fg_color)
+        
+        # Special style for image display with a border
+        style.configure('ImageFrame.TFrame', 
+                        background="#1a1a1a", 
+                        borderwidth=1, 
+                        relief='solid')
+        
+        style.configure('Image.TLabel', 
+                        background="#1a1a1a", 
+                        foreground=fg_color)
+        
+        # Configure button style
+        style.configure('TButton', 
+                        background="#3a3a3a", 
+                        foreground=fg_color, 
+                        borderwidth=1,
+                        focusthickness=0,
+                        focuscolor=highlight_color)
+        
+        style.map('TButton',
+                background=[('active', '#404040'), ('pressed', highlight_color)],
+                foreground=[('pressed', 'white'), ('active', 'white')])
+        
+        # Configure entry fields
+        style.configure('TEntry', 
+                        fieldbackground=input_bg_color,
+                        foreground=fg_color,
+                        insertcolor=fg_color,
+                        bordercolor="#3a3a3a",
+                        lightcolor="#3a3a3a",
+                        darkcolor="#3a3a3a")
+        
+        # Configure spinbox
+        style.configure('TSpinbox', 
+                        fieldbackground=input_bg_color,
+                        foreground=fg_color,
+                        insertcolor=fg_color,
+                        bordercolor="#3a3a3a",
+                        lightcolor="#3a3a3a",
+                        darkcolor="#3a3a3a",
+                        arrowcolor=fg_color)
+        
+        # Configure labelframe (group boxes)
+        style.configure('TLabelframe', 
+                        background=bg_color, 
+                        foreground=fg_color,
+                        bordercolor="#3a3a3a")
+        
+        style.configure('TLabelframe.Label',
+                        background=bg_color,
+                        foreground=fg_color,
+                        font=('Arial', 9, 'bold'))
+        
+        # Set specific style for status bar
+        style.configure('Status.TLabel',
+                        background=input_bg_color,
+                        foreground=fg_color,
+                        relief='sunken')
+                        
+        # Create the status bar with the custom style
+        self.status_bar = ttk.Label(self.root, textvariable=self.status_var, 
+                                   style='Status.TLabel', anchor=tk.W)
+        
+        # Make the title bar dark on Windows
+        if sys.platform == "win32":
+            try:
+                self.root.attributes("-alpha", 0.999)  # Small transparency trick that can trigger dark mode
+                # This is the best we can do in tkinter without using ctypes directly
+                # For better control, we would need to use ctypes like in the PyQt5 version
+            except:
+                pass
     
     def create_control_panel(self):
         control_frame = ttk.LabelFrame(self.root, text="Screenshot Area")
@@ -80,7 +182,7 @@ class ScreenSpy:
         y2_spin.grid(row=1, column=3, sticky=tk.W, padx=5, pady=5)
         self.y2_var.trace_add("write", lambda *args: self.update_coords())
         
-        # Add refresh button
+        # Add refresh button with custom styling
         refresh_button = ttk.Button(control_frame, text="Take Screenshot Now", command=self.take_screenshot)
         refresh_button.grid(row=0, column=4, rowspan=2, padx=10, pady=5)
     

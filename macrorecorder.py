@@ -7,9 +7,10 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout
                             QPushButton, QLabel, QListWidget, QLineEdit, QMessageBox,
                             QInputDialog, QGroupBox, QSplitter)
 from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal
-from PyQt5.QtGui import QFont, QIcon
+from PyQt5.QtGui import QFont, QIcon, QPalette, QColor
 from pynput import mouse
 import pyautogui
+import ctypes
 
 class MouseListenerThread(QThread):
     """Thread for listening to mouse clicks"""
@@ -83,7 +84,10 @@ class MacroRecorder(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Macro Recorder")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 530, 300)
+        
+        # Apply dark theme
+        self.apply_dark_theme()
         
         # Initialize variables
         self.recording = False
@@ -106,6 +110,177 @@ class MacroRecorder(QMainWindow):
         
         # Playback thread (will be initialized during playback)
         self.playback_thread = None
+    
+    def apply_dark_theme(self):
+        """Apply dark theme to the application"""
+        # Set dark palette
+        dark_palette = QPalette()
+        
+        # Define colors
+        dark_color = QColor(45, 45, 45)
+        disabled_color = QColor(70, 70, 70)
+        text_color = QColor(212, 212, 212)
+        highlight_color = QColor(42, 130, 218)
+        
+        # Set colors for different palette roles
+        dark_palette.setColor(QPalette.Window, dark_color)
+        dark_palette.setColor(QPalette.WindowText, text_color)
+        dark_palette.setColor(QPalette.Base, QColor(25, 25, 25))
+        dark_palette.setColor(QPalette.AlternateBase, dark_color)
+        dark_palette.setColor(QPalette.ToolTipBase, text_color)
+        dark_palette.setColor(QPalette.ToolTipText, text_color)
+        dark_palette.setColor(QPalette.Text, text_color)
+        dark_palette.setColor(QPalette.Disabled, QPalette.Text, QColor(150, 150, 150))
+        dark_palette.setColor(QPalette.Button, dark_color)
+        dark_palette.setColor(QPalette.ButtonText, text_color)
+        dark_palette.setColor(QPalette.Disabled, QPalette.ButtonText, QColor(150, 150, 150))
+        dark_palette.setColor(QPalette.BrightText, Qt.red)
+        dark_palette.setColor(QPalette.Link, highlight_color)
+        dark_palette.setColor(QPalette.Highlight, highlight_color)
+        dark_palette.setColor(QPalette.HighlightedText, Qt.black)
+        dark_palette.setColor(QPalette.Disabled, QPalette.HighlightedText, disabled_color)
+        
+        # Apply the palette
+        QApplication.setPalette(dark_palette)
+        
+        # Make the title bar dark on Windows
+        if sys.platform == "win32":
+            # Enable dark title bar on Windows
+            self._set_windows_dark_titlebar()
+        
+        # Apply stylesheet
+        stylesheet = """
+        QMainWindow, QDialog {
+            background-color: #2d2d2d;
+        }
+        
+        QWidget {
+            color: #d4d4d4;
+            background-color: #2d2d2d;
+        }
+        
+        QGroupBox {
+            border: 1px solid #3a3a3a;
+            border-radius: 5px;
+            margin-top: 1ex;
+            font-weight: bold;
+        }
+        
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top center;
+            padding: 0 5px;
+        }
+        
+        QPushButton {
+            background-color: #3a3a3a;
+            border: 1px solid #5a5a5a;
+            border-radius: 4px;
+            padding: 5px 15px;
+            color: #d4d4d4;
+        }
+        
+        QPushButton:hover {
+            background-color: #404040;
+        }
+        
+        QPushButton:pressed {
+            background-color: #2a7ada;
+        }
+        
+        QPushButton:disabled {
+            background-color: #2d2d2d;
+            color: #6a6a6a;
+            border: 1px solid #3a3a3a;
+        }
+        
+        QLineEdit {
+            background-color: #1a1a1a;
+            border: 1px solid #3a3a3a;
+            border-radius: 4px;
+            padding: 3px;
+            color: #d4d4d4;
+        }
+        
+        QListWidget {
+            background-color: #1a1a1a;
+            border: 1px solid #3a3a3a;
+            border-radius: 4px;
+            color: #d4d4d4;
+        }
+        
+        QListWidget::item:selected {
+            background-color: #2a7ada;
+            color: #ffffff;
+        }
+        
+        QLabel {
+            color: #d4d4d4;
+        }
+        
+        QSplitter::handle {
+            background-color: #3a3a3a;
+        }
+        
+        QStatusBar {
+            background-color: #1a1a1a;
+            color: #d4d4d4;
+            border-top: 1px solid #3a3a3a;
+        }
+        
+        QMenuBar {
+            background-color: #1a1a1a;
+            color: #d4d4d4;
+        }
+        
+        QMenuBar::item:selected {
+            background-color: #2a7ada;
+        }
+        
+        QMenu {
+            background-color: #1a1a1a;
+            color: #d4d4d4;
+            border: 1px solid #3a3a3a;
+        }
+        
+        QMenu::item:selected {
+            background-color: #2a7ada;
+        }
+        """
+        self.setStyleSheet(stylesheet)
+    
+    def _set_windows_dark_titlebar(self):
+        """Set Windows 10/11 title bar to dark mode"""
+        try:
+            hwnd = int(self.winId())
+            
+            # Windows 10 1809 or later
+            DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+            
+            # Try with the modern value (Windows 10 1903+)
+            try:
+                dwm_api = ctypes.WinDLL("dwmapi")
+                render_policy = ctypes.c_int(DWMWA_USE_IMMERSIVE_DARK_MODE)
+                policy_value = ctypes.c_int(1)  # 1 = dark, 0 = light
+                dwm_api.DwmSetWindowAttribute(
+                    hwnd, 
+                    render_policy, 
+                    ctypes.byref(policy_value), 
+                    ctypes.sizeof(policy_value)
+                )
+            except Exception:
+                # Fallback to older attribute for Windows 10 1809
+                DWMWA_USE_IMMERSIVE_DARK_MODE_OLD = 19
+                render_policy = ctypes.c_int(DWMWA_USE_IMMERSIVE_DARK_MODE_OLD)
+                policy_value = ctypes.c_int(1)  # 1 = dark, 0 = light
+                dwm_api.DwmSetWindowAttribute(
+                    hwnd, 
+                    render_policy, 
+                    ctypes.byref(policy_value), 
+                    ctypes.sizeof(policy_value)
+                )
+        except Exception as e:
+            print(f"Failed to set dark title bar: {str(e)}")
     
     def setup_ui(self):
         # Create central widget and main layout
