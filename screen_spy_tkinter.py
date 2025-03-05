@@ -23,6 +23,8 @@ class ScreenSpy:
         # Initialize text recognition status variables
         self.recognition_enabled = tk.BooleanVar(value=True)
         self.accept_found = tk.BooleanVar(value=False)
+        self.reject_found = tk.BooleanVar(value=False)  # New variable to track "reject"
+        self.reject_accept_found = tk.BooleanVar(value=False)  # New variable to track both words together
         self.accept_status_var = tk.StringVar(value="No 'accept' found")
         
         # Apply dark theme
@@ -215,6 +217,8 @@ class ScreenSpy:
     def reset_detection(self):
         """Reset the detection state"""
         self.accept_found.set(False)
+        self.reject_found.set(False)  # Reset reject state
+        self.reject_accept_found.set(False)  # Reset combined state
         self.accept_status_var.set("No 'accept' found")
         self.status_indicator.configure(style='Status.TLabel')
 
@@ -386,34 +390,48 @@ class ScreenSpy:
                             text = pytesseract.image_to_string(img, config=custom_config)
                             print(f"OCR result (method: {method}, psm: {psm}): '{text.strip()}'")
                             
-                            # More flexible matching for "accept"
-                            # Look for exact match, partial matches, or characters that could be misrecognized
-                            if re.search(r'ac+e*p*t|acc?e?pt|accept', text, re.IGNORECASE):
-                                if not self.accept_found.get():
-                                    self.accept_found.set(True)
-                                    self.accept_status_var.set("'accept' FOUND!")
-                                    self.status_indicator.configure(style='Alert.TLabel')
-                                    self.root.bell()
-                                    self.root.attributes('-topmost', True)
-                                    self.root.update()
-                                    self.root.attributes('-topmost', False)
-                                    return
+                            # Check for both "reject" and "accept" in the same text
+                            has_accept = re.search(r'ac+e*p*t|acc?e?pt|accept', text, re.IGNORECASE) is not None
+                            has_reject = re.search(r'rej+e*c*t|reje?c?t|reject', text, re.IGNORECASE) is not None
+                            
+                            # Check for partial matches for accept
+                            if not has_accept:
+                                has_accept = (re.search(r'acc', text, re.IGNORECASE) or 
+                                            re.search(r'cept', text, re.IGNORECASE) or
+                                            re.search(r'ac+.?pt', text, re.IGNORECASE)) is not None
+                            
+                            # Check for partial matches for reject
+                            if not has_reject:
+                                has_reject = (re.search(r'rej', text, re.IGNORECASE) or 
+                                            re.search(r'jec', text, re.IGNORECASE) or
+                                            re.search(r're.?ct', text, re.IGNORECASE)) is not None
+                            
+                            # Update states based on what we found
+                            if has_accept:
+                                self.accept_found.set(True)
+                            
+                            if has_reject:
+                                self.reject_found.set(True)
+                            
+                            # If both are found, set the combined state
+                            if has_accept and has_reject:
+                                self.reject_accept_found.set(True)
+                                self.accept_status_var.set("'reject accept' FOUND TOGETHER!")
+                                self.status_indicator.configure(style='Alert.TLabel')
+                                self.root.bell()
+                                self.root.attributes('-topmost', True)
+                                self.root.update()
+                                self.root.attributes('-topmost', False)
+                                return
+                            # If only accept is found but combined state is not activated yet
+                            elif has_accept and not self.reject_accept_found.get():
+                                self.accept_status_var.set("'accept' FOUND!")
+                                self.status_indicator.configure(style='Alert.TLabel')
+                            # If only reject is found but combined state is not activated yet
+                            elif has_reject and not self.reject_accept_found.get():
+                                self.accept_status_var.set("'reject' FOUND!")
+                                self.status_indicator.configure(style='Alert.TLabel')
                                 
-                            # Also check for partial matches that might indicate "accept"
-                            # OCR sometimes struggles with the full word but gets parts right
-                            if (re.search(r'acc', text, re.IGNORECASE) or 
-                                re.search(r'cept', text, re.IGNORECASE) or
-                                re.search(r'ac+.?pt', text, re.IGNORECASE)):
-                                print(f"Potential partial 'accept' match found: '{text}'")
-                                if not self.accept_found.get():
-                                    self.accept_found.set(True)
-                                    self.accept_status_var.set("Potential 'accept' match!")
-                                    self.status_indicator.configure(style='Alert.TLabel')
-                                    self.root.bell()
-                                    self.root.attributes('-topmost', True)
-                                    self.root.update()
-                                    self.root.attributes('-topmost', False)
-                                    return
                         except Exception as e:
                             print(f"OCR attempt failed (method: {method}, psm: {psm}): {str(e)}")
                             continue
@@ -439,10 +457,16 @@ class ScreenSpy:
                 
                 # If we have a significant number of bright pixels (potential text)
                 if 0.01 < bright_ratio < 0.5:  # Adjusted to be more permissive
-                    print("Potential 'accept' detected by backup method")
-                    if not self.accept_found.get():
+                    print("Potential text detected by backup method")
+                    
+                    # Since we can't do precise OCR without Tesseract, just assume there might be "reject accept"
+                    # This is a very simplistic approach, but better than nothing for backup
+                    if not self.reject_accept_found.get():
+                        # Set all detection states as potentials
                         self.accept_found.set(True)
-                        self.accept_status_var.set("Potential 'accept' detected!")
+                        self.reject_found.set(True)
+                        self.reject_accept_found.set(True)
+                        self.accept_status_var.set("Potential 'reject accept' detected!")
                         self.status_indicator.configure(style='Alert.TLabel')
                         self.root.bell()
                         self.root.attributes('-topmost', True)
