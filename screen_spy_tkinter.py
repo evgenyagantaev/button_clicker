@@ -5,6 +5,7 @@ import threading
 import PIL.ImageGrab as ImageGrab
 from PIL import Image, ImageTk
 import sys
+import ctypes
 
 class ScreenSpy:
     def __init__(self, root):
@@ -20,7 +21,7 @@ class ScreenSpy:
         self.apply_dark_theme()
         
         # Default screenshot area based on the values in the screenshot
-        self.x1, self.y1, self.x2, self.y2 = 1830, 880, 1900, 907
+        self.x1, self.y1, self.x2, self.y2 = 1760, 880, 1900, 907
         
         # Create control frame
         self.create_control_panel()
@@ -59,6 +60,25 @@ class ScreenSpy:
         
         # Configure root window background
         self.root.configure(bg=bg_color)
+        
+        # Make the title bar dark on Windows
+        if sys.platform == "win32":
+            try:
+                # Use Windows API to set dark mode for title bar
+                self.root.update()
+                DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+                set_window_attribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
+                hwnd = ctypes.windll.user32.GetParent(self.root.winfo_id())
+                rendering_policy = DWMWA_USE_IMMERSIVE_DARK_MODE
+                value = 2
+                value = ctypes.c_int(value)
+                set_window_attribute(hwnd, rendering_policy, ctypes.byref(value), ctypes.sizeof(value))
+            except:
+                # Fallback to the old method if the above fails
+                try:
+                    self.root.attributes("-alpha", 0.999)  # Small transparency trick that can trigger dark mode
+                except:
+                    pass
         
         # Create and configure ttk style
         style = ttk.Style()
@@ -127,6 +147,17 @@ class ScreenSpy:
                         foreground=fg_color,
                         font=('Arial', 9, 'bold'))
         
+        # Create a specific style for the control panel
+        style.configure('Control.TLabelframe', 
+                        background=input_bg_color, 
+                        foreground=fg_color,
+                        bordercolor="#3a3a3a")
+        
+        style.configure('Control.TLabelframe.Label',
+                        background=input_bg_color,
+                        foreground=fg_color,
+                        font=('Arial', 9, 'bold'))
+        
         # Set specific style for status bar
         style.configure('Status.TLabel',
                         background=input_bg_color,
@@ -136,18 +167,9 @@ class ScreenSpy:
         # Create the status bar with the custom style
         self.status_bar = ttk.Label(self.root, textvariable=self.status_var, 
                                    style='Status.TLabel', anchor=tk.W)
-        
-        # Make the title bar dark on Windows
-        if sys.platform == "win32":
-            try:
-                self.root.attributes("-alpha", 0.999)  # Small transparency trick that can trigger dark mode
-                # This is the best we can do in tkinter without using ctypes directly
-                # For better control, we would need to use ctypes like in the PyQt5 version
-            except:
-                pass
     
     def create_control_panel(self):
-        control_frame = ttk.LabelFrame(self.root, text="Screenshot Area")
+        control_frame = ttk.LabelFrame(self.root, text="Screenshot Area", style='Control.TLabelframe')
         control_frame.pack(fill=tk.X, padx=10, pady=10)
         
         # Create grid layout
