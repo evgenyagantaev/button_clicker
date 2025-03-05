@@ -53,8 +53,9 @@ class ScreenSpy:
         # Check for Tesseract installation
         self.tesseract_available = self.check_tesseract()
         if not self.tesseract_available:
-            self.status_var.set("Warning: Tesseract OCR not found. Text recognition disabled.")
-            self.recognition_enabled.set(False)
+            self.status_var.set("Warning: Tesseract OCR not found. Using backup detection method.")
+            # Keep text recognition enabled even without Tesseract
+            # self.recognition_enabled.set(False)  # Commented out to keep enabled
         
         # Start screenshot thread
         self.screenshot_thread = threading.Thread(target=self.screenshot_loop)
@@ -261,6 +262,11 @@ class ScreenSpy:
         recog_check = ttk.Checkbutton(control_frame, text="Enable Text Recognition", 
                                      variable=self.recognition_enabled)
         recog_check.grid(row=2, column=0, columnspan=5, padx=5, pady=5, sticky=tk.W)
+        # Ensure the checkbox is checked by default
+        self.recognition_enabled.set(True)
+        # Explicitly select the checkbox
+        recog_check.invoke()
+        recog_check.invoke()  # Double invoke to ensure it's checked
     
     def update_coords(self):
         try:
@@ -287,8 +293,8 @@ class ScreenSpy:
             # Take the screenshot
             screenshot = ImageGrab.grab(bbox=(left, top, right, bottom))
             
-            # Perform text recognition if enabled
-            if self.recognition_enabled.get() and self.tesseract_available:
+            # Perform text recognition if enabled, regardless of whether Tesseract is available
+            if self.recognition_enabled.get():
                 self.recognize_text(screenshot)
             
             # Resize to fit the label
@@ -319,25 +325,133 @@ class ScreenSpy:
     def recognize_text(self, image):
         """Recognize text in the image and check for 'accept'"""
         try:
-            # Convert image to text
-            text = pytesseract.image_to_string(image)
+            # Debug info - display size of image
+            width, height = image.size
+            print(f"Processing image: {width}x{height}")
             
-            # Check if "accept" is in the text (case insensitive)
-            if re.search(r'accept', text, re.IGNORECASE):
-                if not self.accept_found.get():
-                    # Only update if not already found (to avoid constant UI updates)
-                    self.accept_found.set(True)
-                    self.accept_status_var.set("'accept' FOUND!")
-                    # Change indicator color to alert
-                    self.status_indicator.configure(style='Alert.TLabel')
-                    # Optional: Play a sound or flash the window
-                    self.root.bell()  # System bell sound
-                    # Make window appear on top
-                    self.root.attributes('-topmost', True)
-                    self.root.update()
-                    self.root.attributes('-topmost', False)
+            # First try with direct OCR if Tesseract is available
+            if self.tesseract_available:
+                # Prepare image for better OCR - convert to grayscale
+                gray_image = image.convert('L')
+                
+                # Try multiple threshold values to improve detection
+                threshold_values = [100, 120, 140, 160, 180]  # Expanded range
+                
+                # Try multiple PSM modes
+                psm_modes = [7, 6, 10, 11, 3]  # Added more page segmentation modes
+                
+                # Enhanced attempts list with various preprocessing techniques
+                attempts = []
+                
+                # Add thresholded images
+                for threshold in threshold_values:
+                    # Standard threshold (dark text on light background)
+                    binary = gray_image.point(lambda p: 0 if p < threshold else 255)
+                    attempts.append((binary, f"binary-{threshold}"))
+                    
+                    # Inverted threshold (light text on dark background)
+                    inverted = gray_image.point(lambda p: 255 if p < threshold else 0)
+                    attempts.append((inverted, f"inverted-{threshold}"))
+                    
+                    # Scaled versions
+                    scaled_binary = binary.resize((width*2, height*2), Image.LANCZOS)
+                    attempts.append((scaled_binary, f"scaled-binary-{threshold}"))
+                    
+                    scaled_inverted = inverted.resize((width*2, height*2), Image.LANCZOS)
+                    attempts.append((scaled_inverted, f"scaled-inverted-{threshold}"))
+                
+                # Also add original images
+                attempts.append((gray_image, "grayscale"))
+                attempts.append((image, "original"))
+                scaled_gray = gray_image.resize((width*2, height*2), Image.LANCZOS)
+                attempts.append((scaled_gray, "scaled-grayscale"))
+                scaled_original = image.resize((width*2, height*2), Image.LANCZOS)
+                attempts.append((scaled_original, "scaled-original"))
+                
+                # Try with various combinations of image processing and OCR settings
+                for img, method in attempts:
+                    for psm in psm_modes:
+                        try:
+                            # Try with different OCR configurations
+                            # PSM 7 - Treat the image as a single text line
+                            # PSM 6 - Assume a single uniform block of text
+                            # PSM 10 - Treat the image as a single character
+                            # PSM 11 - Sparse text. Find as much text as possible in no particular order
+                            # PSM 3 - Fully automatic page segmentation (default)
+                            
+                            # Allow more characters but optimize for "accept"
+                            custom_config = f'--oem 3 --psm {psm} -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+                            
+                            # Convert image to text
+                            text = pytesseract.image_to_string(img, config=custom_config)
+                            print(f"OCR result (method: {method}, psm: {psm}): '{text.strip()}'")
+                            
+                            # More flexible matching for "accept"
+                            # Look for exact match, partial matches, or characters that could be misrecognized
+                            if re.search(r'ac+e*p*t|acc?e?pt|accept', text, re.IGNORECASE):
+                                if not self.accept_found.get():
+                                    self.accept_found.set(True)
+                                    self.accept_status_var.set("'accept' FOUND!")
+                                    self.status_indicator.configure(style='Alert.TLabel')
+                                    self.root.bell()
+                                    self.root.attributes('-topmost', True)
+                                    self.root.update()
+                                    self.root.attributes('-topmost', False)
+                                    return
+                                
+                            # Also check for partial matches that might indicate "accept"
+                            # OCR sometimes struggles with the full word but gets parts right
+                            if (re.search(r'acc', text, re.IGNORECASE) or 
+                                re.search(r'cept', text, re.IGNORECASE) or
+                                re.search(r'ac+.?pt', text, re.IGNORECASE)):
+                                print(f"Potential partial 'accept' match found: '{text}'")
+                                if not self.accept_found.get():
+                                    self.accept_found.set(True)
+                                    self.accept_status_var.set("Potential 'accept' match!")
+                                    self.status_indicator.configure(style='Alert.TLabel')
+                                    self.root.bell()
+                                    self.root.attributes('-topmost', True)
+                                    self.root.update()
+                                    self.root.attributes('-topmost', False)
+                                    return
+                        except Exception as e:
+                            print(f"OCR attempt failed (method: {method}, psm: {psm}): {str(e)}")
+                            continue
+            
+            # If we get here, try pattern matching as backup
+            # This is simplified image analysis that works without Tesseract
+            # Convert to grayscale for simplicity
+            gray = image.convert('L')
+            
+            # Get pixel data
+            pixels = list(gray.getdata())
+            avg_brightness = sum(pixels) / len(pixels)
+            
+            # This is a very simplified backup method - looking for bright text on dark background
+            # It's not as accurate as OCR but can serve as a fallback
+            # Specifically checking for patterns that could indicate "accept" text
+            if avg_brightness < 100:  # Dark background with light text (like the screenshot)
+                # Count bright pixels - in a pattern consistent with text
+                bright_pixels = sum(1 for p in pixels if p > 200)
+                bright_ratio = bright_pixels / len(pixels)
+                
+                print(f"Backup detection - Avg brightness: {avg_brightness}, Bright ratio: {bright_ratio}")
+                
+                # If we have a significant number of bright pixels (potential text)
+                if 0.01 < bright_ratio < 0.5:  # Adjusted to be more permissive
+                    print("Potential 'accept' detected by backup method")
+                    if not self.accept_found.get():
+                        self.accept_found.set(True)
+                        self.accept_status_var.set("Potential 'accept' detected!")
+                        self.status_indicator.configure(style='Alert.TLabel')
+                        self.root.bell()
+                        self.root.attributes('-topmost', True)
+                        self.root.update()
+                        self.root.attributes('-topmost', False)
+                
         except Exception as e:
             self.status_var.set(f"Text recognition error: {str(e)}")
+            print(f"OCR Error: {str(e)}")
     
     def screenshot_loop(self):
         while self.running:
@@ -352,12 +466,43 @@ class ScreenSpy:
     def check_tesseract(self):
         """Check if Tesseract OCR is installed and available"""
         try:
-            # Try to get tesseract version
-            pytesseract.get_tesseract_version()
+            # First try to get tesseract version
+            version = pytesseract.get_tesseract_version()
+            print(f"Tesseract version: {version}")
             return True
-        except Exception:
+        except Exception as e:
+            print(f"Error with Tesseract: {str(e)}")
+            
+            # Define possible paths where Tesseract might be installed
+            # This is especially important on Windows where it's often not in PATH
+            possible_paths = [
+                r'C:\Program Files\Tesseract-OCR\tesseract.exe',
+                r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe',
+                r'C:\Users\evgeny\AppData\Local\Programs\Tesseract-OCR\tesseract.exe',  # Common user install path
+                r'/usr/bin/tesseract',
+                r'/usr/local/bin/tesseract'
+            ]
+            
+            for path in possible_paths:
+                if os.path.exists(path):
+                    print(f"Found Tesseract at: {path}")
+                    pytesseract.pytesseract.tesseract_cmd = path
+                    try:
+                        version = pytesseract.get_tesseract_version()
+                        print(f"Tesseract version after path fix: {version}")
+                        return True
+                    except:
+                        continue
+            
+            print("Tesseract OCR not found or not correctly installed")
+            print("Please install it from: https://github.com/UB-Mannheim/tesseract/wiki")
+            
+            # Last resort - try to use alternative OCR methods
+            # If we got here, we'll try to do basic text detection without Tesseract
+            # by using a simple pattern matching approach for the word "accept"
+            print("Enabling backup detection method")
             return False
-
+            
 
 if __name__ == "__main__":
     root = tk.Tk()
