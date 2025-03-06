@@ -1,0 +1,10 @@
+{
+    "x1": 1730,
+    "y1": 880,
+    "x2": 1900,
+    "y2": 907,
+    "click_x": 1851,
+    "click_y": 891,
+    "interval": 60,
+    "model": "vis-openai/gpt-4o-mini"
+}

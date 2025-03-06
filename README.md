@@ -7,12 +7,14 @@ An autonomous agent that monitors a specific area of the screen for the presence
 - Takes screenshots of a specific area of the screen at regular intervals
 - Analyzes screenshots using OpenAI's vision model to detect text
 - Performs a mouse click at a specified location when both "Accept" and "Reject" are detected
-- Configurable via command line arguments or environment variables
+- Configurable via command line arguments, environment variables, or a graphical user interface
+- Dark-themed GUI for easy configuration and monitoring
 
 ## Requirements
 
 - Python 3.8+
 - OpenAI API key with access to vision models
+- Tkinter (for GUI mode)
 
 ## Installation
 
@@ -36,7 +38,20 @@ An autonomous agent that monitors a specific area of the screen for the presence
 
 ## Usage
 
-### Basic Usage
+### GUI Mode
+
+```
+python main.py --gui
+```
+
+This will start the agent with a graphical user interface that allows you to:
+- Configure the screenshot area visually
+- Set the click position and interval
+- See a live preview of the screenshot area
+- Start and stop the agent
+- All settings are automatically saved to a configuration file
+
+### Command Line Mode
 
 ```
 python main.py
@@ -54,6 +69,7 @@ python main.py --x1 100 --y1 200 --x2 300 --y2 400 --click-x 150 --click-y 250 -
 
 ### Available Arguments
 
+- `--gui`: Run in GUI mode
 - `--x1`, `--y1`, `--x2`, `--y2`: Coordinates of the screen area to monitor
 - `--click-x`, `--click-y`: Coordinates where to click when both words are detected
 - `--interval`: Interval in seconds between screenshots
@@ -88,6 +104,7 @@ python -m pytest
   - `screen_spy_agent.py`: Main agent class
 - `tests/`: Test directory
 - `main.py`: Entry point script
+- `gui_integration.py`: GUI implementation
 - `.env.example`: Example environment variables
 - `requirements.txt`: Required packages
 

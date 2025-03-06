@@ -34,6 +34,9 @@ def parse_args():
     parser.add_argument("--api-base", type=str, help="OpenAI API base URL")
     parser.add_argument("--model", type=str, help="Model to use for image analysis")
     
+    # GUI mode flag
+    parser.add_argument("--gui", action="store_true", help="Run with GUI interface")
+    
     return parser.parse_args()
 
 
@@ -44,6 +47,17 @@ def main():
     
     # Parse command line arguments
     args = parse_args()
+    
+    # Check if GUI mode is enabled
+    if args.gui:
+        try:
+            # Import here to avoid dependency issues if tkinter is not available
+            from gui_integration import main as gui_main
+            gui_main()
+            return
+        except ImportError as e:
+            print(f"Error loading GUI: {e}")
+            print("Running in command line mode instead.")
     
     # Get API credentials from environment variables or command line arguments
     api_key = args.api_key or os.environ.get("OPENAI_API_KEY", "")
