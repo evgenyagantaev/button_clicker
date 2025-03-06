@@ -13,6 +13,7 @@ import json
 import time
 from PIL import Image, ImageTk
 import PIL.ImageGrab as ImageGrab
+from dotenv import load_dotenv
 
 from screen_spy_agent.screenshot_taker import ScreenshotTaker
 from screen_spy_agent.image_analyzer import ImageAnalyzer
@@ -386,7 +387,7 @@ class ScreenSpyGUI:
         """Thread function to update the screenshot at regular intervals"""
         while self.running:
             self.take_screenshot()
-            time.sleep(1)  # Update every second for the preview
+            time.sleep(3)  # Update every second for the preview
     
     def toggle_agent(self):
         """Start or stop the Screen Spy Agent"""
@@ -396,6 +397,18 @@ class ScreenSpyGUI:
                 api_key = os.environ.get("OPENAI_API_KEY", "")
                 api_base = os.environ.get("OPENAI_API_BASE", "")
                 
+                # Add diagnostic output (masked for security)
+                if api_key:
+                    masked_key = api_key[:4] + "*" * (len(api_key) - 8) + api_key[-4:] if len(api_key) > 8 else "****"
+                    print(f"API Key found: {masked_key}")
+                else:
+                    print("API Key not found in environment variables")
+                    
+                if api_base:
+                    print(f"API Base URL found: {api_base}")
+                else:
+                    print("API Base URL not found in environment variables")
+                    
                 if not api_key:
                     self.status_var.set("Error: API key is required. Set OPENAI_API_KEY environment variable.")
                     return
@@ -551,6 +564,8 @@ class ScreenSpyGUI:
 
 def main():
     """Main function to run the GUI."""
+    # Load environment variables from .env file
+    load_dotenv()
     root = tk.Tk()
     app = ScreenSpyGUI(root)
     root.mainloop()

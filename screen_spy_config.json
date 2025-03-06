@@ -5,6 +5,6 @@
     "y2": 907,
     "click_x": 1851,
     "click_y": 891,
-    "interval": 60,
+    "interval": 20,
     "model": "vis-openai/gpt-4o-mini"
 }
