@@ -1,66 +1,95 @@
-# Macro Recorder
+# Screen Spy Agent
 
-A Python application for recording and playing back mouse clicks.
+An autonomous agent that monitors a specific area of the screen for the presence of the words "Accept" and "Reject", and performs a mouse click when both are detected.
 
 ## Features
 
-- Record sequences of left mouse clicks
-- Save macros with unique names
-- Play back recorded macros with 3-second pauses between clicks
-- Manage a list of saved macros (load, delete)
-- Persistent storage of macros in JSON format
+- Takes screenshots of a specific area of the screen at regular intervals
+- Analyzes screenshots using OpenAI's vision model to detect text
+- Performs a mouse click at a specified location when both "Accept" and "Reject" are detected
+- Configurable via command line arguments or environment variables
 
 ## Requirements
 
-- Python 3.6+
-- PyQt5
-- pyautogui
-- pynput
-- numpy
+- Python 3.8+
+- OpenAI API key with access to vision models
 
 ## Installation
 
-1. Clone or download this repository
-2. Install the required packages:
+1. Clone the repository:
+   ```
+   git clone https://github.com/yourusername/screen-spy-agent.git
+   cd screen-spy-agent
+   ```
 
-```bash
-pip install -r requirements.txt
-```
+2. Install the required packages:
+   ```
+   pip install -r requirements.txt
+   ```
+
+3. Create a `.env` file with your configuration (see `.env.example` for reference):
+   ```
+   cp .env.example .env
+   ```
+
+4. Edit the `.env` file with your OpenAI API key and other settings.
 
 ## Usage
 
-Run the application:
+### Basic Usage
 
-```bash
-python macrorecorder.py
+```
+python main.py
 ```
 
-### Recording a Macro
+This will start the agent with the settings from your `.env` file.
 
-1. Click the "Record" button to start recording
-2. Perform the mouse clicks you want to record
-3. Click the "Stop" button when finished
-4. Enter a name for your macro in the "Macro Name" field
-5. Click "Save Macro" to save it
+### Command Line Arguments
 
-### Playing a Macro
+You can override the settings from the `.env` file with command line arguments:
 
-1. Select a macro from the list on the left
-2. Click the "Play Macro" button
-3. Confirm that you want to play the macro
-4. The application will simulate the recorded mouse clicks with a 3-second pause between each click
+```
+python main.py --x1 100 --y1 200 --x2 300 --y2 400 --click-x 150 --click-y 250 --interval 10
+```
 
-### Managing Macros
+### Available Arguments
 
-- Macros are automatically saved to a file named `macros.json` in the same directory as the application
-- To delete a macro, select it and click the "Delete Macro" button
-- To update a macro, select it, record a new sequence, and save it with the same name
+- `--x1`, `--y1`, `--x2`, `--y2`: Coordinates of the screen area to monitor
+- `--click-x`, `--click-y`: Coordinates where to click when both words are detected
+- `--interval`: Interval in seconds between screenshots
+- `--api-key`: OpenAI API key
+- `--api-base`: OpenAI API base URL
+- `--model`: Model to use for image analysis
 
-## Notes
+## How It Works
 
-- The application records the absolute screen coordinates of mouse clicks
-- Make sure the screen elements are in the same positions during playback as they were during recording
-- A confirmation dialog will appear before playing back a macro to prevent unintended actions
+1. The agent takes a screenshot of the specified area every `interval` seconds
+2. The screenshot is saved to the current directory with a timestamp
+3. The screenshot is sent to the OpenAI vision model for analysis
+4. If both "Accept" and "Reject" are detected in the image, the agent performs a mouse click at the specified coordinates
+5. The process repeats until the agent is stopped
+
+## Development
+
+### Running Tests
+
+```
+python -m pytest
+```
+
+### Project Structure
+
+- `screen_spy_agent/`: Main package
+  - `screenshot_taker.py`: Module for taking screenshots
+  - `image_analyzer.py`: Module for analyzing images with OpenAI
+  - `mouse_controller.py`: Module for controlling the mouse
+  - `agent_state.py`: Module for maintaining agent state
+  - `agent_node.py`: Module defining agent workflow nodes
+  - `screen_spy_agent.py`: Main agent class
+- `tests/`: Test directory
+- `main.py`: Entry point script
+- `.env.example`: Example environment variables
+- `requirements.txt`: Required packages
 
 ## License
 

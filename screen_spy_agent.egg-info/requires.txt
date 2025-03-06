@@ -9,4 +9,4 @@ pyautogui>=0.9.54
 pynput>=1.7.6
 pytest>=7.4.0
 pytest-mock>=3.11.1
-python-dotenv>=1.0.0 
+python-dotenv>=1.0.0

@@ -1,0 +1,16 @@
+Metadata-Version: 2.2
+Name: screen_spy_agent
+Version: 0.1.0
+Requires-Dist: langchain>=0.1.0
+Requires-Dist: langchain-core>=0.1.10
+Requires-Dist: langchain-openai>=0.0.5
+Requires-Dist: langchain-community>=0.0.13
+Requires-Dist: langgraph>=0.0.20
+Requires-Dist: openai>=1.10.0
+Requires-Dist: pillow>=10.0.0
+Requires-Dist: pyautogui>=0.9.54
+Requires-Dist: pynput>=1.7.6
+Requires-Dist: pytest>=7.4.0
+Requires-Dist: pytest-mock>=3.11.1
+Requires-Dist: python-dotenv>=1.0.0
+Dynamic: requires-dist
