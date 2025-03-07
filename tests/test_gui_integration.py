@@ -204,3 +204,78 @@ class TestGUIIntegration:
                 
                 # Verify save_config was called
                 assert mock_save_config.call_count == 2 
+    
+    @patch('gui_integration.ScreenSpyGUI.save_config')
+    def test_select_area_loads_click_coordinates(self, mock_save_config, mock_tk, temp_config_file):
+        """Test that selecting a new area loads the click coordinates from the configuration without saving them immediately."""
+        # Mock the IntVar get/set methods
+        mock_intvar_instances = []
+        
+        def mock_intvar_init(*args, **kwargs):
+            mock_var = MagicMock()
+            mock_var.get.return_value = 0
+            mock_intvar_instances.append(mock_var)
+            return mock_var
+        
+        mock_tk['intvar'].side_effect = mock_intvar_init
+        
+        # Create a test config file with different click coordinates for each area
+        test_config = {
+            "areas": [
+                [100, 100, 200, 200],
+                [300, 300, 400, 400],
+                [500, 500, 600, 600],
+                [700, 700, 800, 800]
+            ],
+            "clicks": [
+                [],  # Area 0 - no clicks
+                [[150, 150]],  # Area 1
+                [[250, 250]],  # Area 2
+                [[350, 350]]   # Area 3
+            ],
+            "interval": 15,
+            "model": "test-model"
+        }
+        
+        with open(temp_config_file, 'w') as f:
+            json.dump(test_config, f)
+        
+        # Create GUI with the temp config file
+        with patch('gui_integration.CONFIG_FILE', temp_config_file):
+            with patch('gui_integration.ImageGrab.grab') as mock_grab:
+                # Mock the screenshot capture
+                mock_image = MagicMock()
+                mock_grab.return_value = mock_image
+                mock_image.resize.return_value = mock_image
+                
+                # Create the GUI
+                gui = ScreenSpyGUI(MagicMock())
+                
+                # Ensure the click position variables are set up
+                gui.click_x_var = mock_intvar_instances[2]  # The indexes depend on initialization order
+                gui.click_y_var = mock_intvar_instances[3]
+                
+                # Initially, area 0 is selected which has no clicks
+                
+                # Test selecting area 1
+                # Reset mock save_config to clear any calls
+                mock_save_config.reset_mock()
+                gui.select_area(1)
+                
+                # Verify the click coordinates for area 1 are loaded
+                gui.click_x_var.set.assert_called_with(150)
+                gui.click_y_var.set.assert_called_with(150)
+                
+                # The key assertion: save_config should NOT be called when selecting a new area
+                mock_save_config.assert_not_called()
+                
+                # Test selecting area 2
+                mock_save_config.reset_mock()
+                gui.select_area(2)
+                
+                # Verify the click coordinates for area 2 are loaded
+                gui.click_x_var.set.assert_called_with(250)
+                gui.click_y_var.set.assert_called_with(250)
+                
+                # The key assertion: save_config should NOT be called when selecting a new area
+                mock_save_config.assert_not_called() 

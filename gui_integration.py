@@ -74,16 +74,11 @@ class ScreenSpyGUI:
         self.agent = None
         self.screenshot_thread = None
         self.running = True
+        self.disable_auto_save = False  # Flag to control automatic saving
         
         # Variables for multiple screenshot areas
         self.num_areas = 4
         self.current_area = 0  # Currently selected area (0-3)
-        
-        # Initialize the GUI variables before loading config
-        self.click_x_var = tk.IntVar(value=50)
-        self.click_y_var = tk.IntVar(value=50)
-        self.interval_var = tk.IntVar(value=15)
-        self.model_var = tk.StringVar(value="vis-openai/gpt-4o-mini")
         
         # Initialize area variables with default values
         self.area_vars = [
@@ -101,8 +96,27 @@ class ScreenSpyGUI:
             [[50, 50]]   # Area 3
         ]
         
+        # Initialize the GUI variables with the appropriate values for the current area
+        self.x1_var = tk.IntVar(value=self.area_vars[self.current_area][0])
+        self.y1_var = tk.IntVar(value=self.area_vars[self.current_area][1])
+        self.x2_var = tk.IntVar(value=self.area_vars[self.current_area][2])
+        self.y2_var = tk.IntVar(value=self.area_vars[self.current_area][3])
+        
+        # Initialize click position variables
+        if self.current_area > 0 and len(self.click_lists[self.current_area]) > 0:
+            self.click_x_var = tk.IntVar(value=self.click_lists[self.current_area][0][0])
+            self.click_y_var = tk.IntVar(value=self.click_lists[self.current_area][0][1])
+        else:
+            # Default values for area 0 or empty click lists
+            self.click_x_var = tk.IntVar(value=50)
+            self.click_y_var = tk.IntVar(value=50)
+        
+        # Other settings
+        self.interval_var = tk.IntVar(value=15)
+        self.model_var = tk.StringVar(value="vis-openai/gpt-4o-mini")
+        
         # Initialize area info variable
-        self.area_info_var = tk.StringVar(value=f"Area {self.current_area}: (0,0 to 100,100)")
+        self.area_info_var = tk.StringVar(value=f"Area {self.current_area}: ({self.get_area_coords(self.current_area)})")
         
         # Load saved configuration if available
         self.load_config()
@@ -288,28 +302,24 @@ class ScreenSpyGUI:
         
         # X1 control
         ttk.Label(control_frame, text="X1:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
-        self.x1_var = tk.IntVar(value=self.area_vars[self.current_area][0])
         x1_spin = ttk.Spinbox(control_frame, from_=0, to=3000, textvariable=self.x1_var, width=10)
         x1_spin.grid(row=0, column=1, sticky=tk.W, padx=5, pady=5)
         self.x1_var.trace_add("write", lambda *args: self.update_coords())
         
         # Y1 control
         ttk.Label(control_frame, text="Y1:").grid(row=0, column=2, sticky=tk.W, padx=5, pady=5)
-        self.y1_var = tk.IntVar(value=self.area_vars[self.current_area][1])
         y1_spin = ttk.Spinbox(control_frame, from_=0, to=3000, textvariable=self.y1_var, width=10)
         y1_spin.grid(row=0, column=3, sticky=tk.W, padx=5, pady=5)
         self.y1_var.trace_add("write", lambda *args: self.update_coords())
         
         # X2 control
         ttk.Label(control_frame, text="X2:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
-        self.x2_var = tk.IntVar(value=self.area_vars[self.current_area][2])
         x2_spin = ttk.Spinbox(control_frame, from_=0, to=3000, textvariable=self.x2_var, width=10)
         x2_spin.grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
         self.x2_var.trace_add("write", lambda *args: self.update_coords())
         
         # Y2 control
         ttk.Label(control_frame, text="Y2:").grid(row=1, column=2, sticky=tk.W, padx=5, pady=5)
-        self.y2_var = tk.IntVar(value=self.area_vars[self.current_area][3])
         y2_spin = ttk.Spinbox(control_frame, from_=0, to=3000, textvariable=self.y2_var, width=10)
         y2_spin.grid(row=1, column=3, sticky=tk.W, padx=5, pady=5)
         self.y2_var.trace_add("write", lambda *args: self.update_coords())
@@ -324,13 +334,11 @@ class ScreenSpyGUI:
         
         # Click position
         ttk.Label(agent_frame, text="Click X:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
-        self.click_x_var = tk.IntVar(value=self.click_lists[self.current_area][0][0] if self.click_lists[self.current_area] else 50)
         click_x_spin = ttk.Spinbox(agent_frame, from_=0, to=3000, textvariable=self.click_x_var, width=10)
         click_x_spin.grid(row=0, column=1, sticky=tk.W, padx=5, pady=5)
         self.click_x_var.trace_add("write", lambda *args: self.update_click_pos())
         
         ttk.Label(agent_frame, text="Click Y:").grid(row=0, column=2, sticky=tk.W, padx=5, pady=5)
-        self.click_y_var = tk.IntVar(value=self.click_lists[self.current_area][0][1] if self.click_lists[self.current_area] else 50)
         click_y_spin = ttk.Spinbox(agent_frame, from_=0, to=3000, textvariable=self.click_y_var, width=10)
         click_y_spin.grid(row=0, column=3, sticky=tk.W, padx=5, pady=5)
         self.click_y_var.trace_add("write", lambda *args: self.update_click_pos())
@@ -363,19 +371,47 @@ class ScreenSpyGUI:
             if area_index < 0 or area_index >= self.num_areas:
                 raise ValueError(f"Invalid area index: {area_index}")
             
+            # Print debug info
+            print(f"Selecting area {area_index}")
+            print(f"Current area_vars: {self.area_vars}")
+            print(f"Current click_lists: {self.click_lists}")
+            
+            # Disable automatic saving during area change
+            self.disable_auto_save = True
+            
             # Update current area
             self.current_area = area_index
             
-            # Update coordinate spinboxes
-            self.x1_var.set(self.area_vars[self.current_area][0])
-            self.y1_var.set(self.area_vars[self.current_area][1])
-            self.x2_var.set(self.area_vars[self.current_area][2])
-            self.y2_var.set(self.area_vars[self.current_area][3])
+            # Update coordinate spinboxes - make sure we're using the right values
+            # First clear any existing trace to prevent errors during updates
+            try:
+                x1 = self.area_vars[self.current_area][0]
+                y1 = self.area_vars[self.current_area][1]
+                x2 = self.area_vars[self.current_area][2]
+                y2 = self.area_vars[self.current_area][3]
+                
+                print(f"Setting coordinate values for area {self.current_area}: x1={x1}, y1={y1}, x2={x2}, y2={y2}")
+                self.x1_var.set(x1)
+                self.y1_var.set(y1)
+                self.x2_var.set(x2)
+                self.y2_var.set(y2)
+            except Exception as e:
+                print(f"Error setting area coordinates: {e}")
             
             # Update click position spinboxes for areas 1-3
-            if area_index > 0 and len(self.click_lists[area_index]) > 0:
-                self.click_x_var.set(self.click_lists[area_index][0][0])
-                self.click_y_var.set(self.click_lists[area_index][0][1])
+            # Ensure we handle click positions correctly
+            if self.current_area > 0 and len(self.click_lists[self.current_area]) > 0:
+                # Print debug info for clicks
+                print(f"Setting click coordinates for area {self.current_area}: {self.click_lists[self.current_area][0]}")
+                click_x = self.click_lists[self.current_area][0][0]
+                click_y = self.click_lists[self.current_area][0][1]
+                self.click_x_var.set(click_x)
+                self.click_y_var.set(click_y)
+            else:
+                # For area 0 or if no clicks exist, set default values
+                print(f"No clicks for area {self.current_area}, setting default values")
+                self.click_x_var.set(50)
+                self.click_y_var.set(50)
             
             # Update area info text
             self.area_info_var.set(f"Area {self.current_area}: ({self.get_area_coords(self.current_area)})")
@@ -383,8 +419,23 @@ class ScreenSpyGUI:
             # Update screenshot
             self.take_screenshot()
             
+            # Re-enable automatic saving
+            self.disable_auto_save = False
+            
+            # Print final state
+            print(f"Area selection complete. Current area: {self.current_area}")
+            try:
+                print(f"Coordinate values: x1={self.x1_var.get()}, y1={self.y1_var.get()}, x2={self.x2_var.get()}, y2={self.y2_var.get()}")
+                print(f"Area in area_vars: {self.area_vars[self.current_area]}")
+                print(f"Click values: x={self.click_x_var.get()}, y={self.click_y_var.get()}")
+            except Exception as e:
+                print(f"Error getting final state: {e}")
+            
             self.status_var.set(f"Selected area {self.current_area}")
         except Exception as e:
+            # Make sure to re-enable auto-save even if an error occurs
+            self.disable_auto_save = False
+            
             import traceback
             print(f"Error selecting area: {e}")
             print(traceback.format_exc())
@@ -393,20 +444,47 @@ class ScreenSpyGUI:
     def update_coords(self):
         """Update screenshot area coordinates from spinboxes"""
         try:
-            # Get values from spinboxes
-            x1 = int(self.x1_var.get())
-            y1 = int(self.y1_var.get())
-            x2 = int(self.x2_var.get())
-            y2 = int(self.y2_var.get())
+            # Get values from spinboxes - handle empty strings or invalid values
+            try:
+                x1 = int(self.x1_var.get())
+            except (ValueError, tk.TclError):
+                print("Warning: Invalid value for x1, using default")
+                x1 = self.area_vars[self.current_area][0]  # Use existing value
+                self.x1_var.set(x1)  # Reset the variable to a valid value
+                
+            try:
+                y1 = int(self.y1_var.get())
+            except (ValueError, tk.TclError):
+                print("Warning: Invalid value for y1, using default")
+                y1 = self.area_vars[self.current_area][1]
+                self.y1_var.set(y1)
+                
+            try:
+                x2 = int(self.x2_var.get())
+            except (ValueError, tk.TclError):
+                print("Warning: Invalid value for x2, using default")
+                x2 = self.area_vars[self.current_area][2]
+                self.x2_var.set(x2)
+                
+            try:
+                y2 = int(self.y2_var.get())
+            except (ValueError, tk.TclError):
+                print("Warning: Invalid value for y2, using default")
+                y2 = self.area_vars[self.current_area][3]
+                self.y2_var.set(y2)
             
             # Update only the currently selected area
             self.area_vars[self.current_area] = [x1, y1, x2, y2]
             
+            # Print debug info 
+            print(f"Updated area_vars for area {self.current_area}: {self.area_vars[self.current_area]}")
+            
             # Update the screenshot with new coordinates
             self.take_screenshot()
             
-            # Save configuration
-            self.save_config()
+            # Save configuration only if auto-save is not disabled
+            if not self.disable_auto_save:
+                self.save_config()
         except Exception as e:
             import traceback
             print(f"Error updating coordinates: {e}")
@@ -428,8 +506,9 @@ class ScreenSpyGUI:
                 else:
                     self.click_lists[self.current_area][0] = [click_x, click_y]
             
-            # Save configuration
-            self.save_config()
+            # Save configuration only if auto-save is not disabled
+            if not self.disable_auto_save:
+                self.save_config()
         except Exception as e:
             import traceback
             print(f"Error updating click position: {e}")
@@ -440,7 +519,8 @@ class ScreenSpyGUI:
         """Update interval value from spinbox"""
         try:
             # No need to store in a separate property, the value is already in self.interval_var
-            self.save_config()
+            if not self.disable_auto_save:
+                self.save_config()
         except Exception as e:
             import traceback
             print(f"Error updating interval: {e}")
@@ -451,7 +531,8 @@ class ScreenSpyGUI:
         """Update model value from entry field"""
         try:
             # No need to store in a separate property, the value is already in self.model_var
-            self.save_config()
+            if not self.disable_auto_save:
+                self.save_config()
         except Exception as e:
             import traceback
             print(f"Error updating model: {e}")
@@ -672,6 +753,14 @@ class ScreenSpyGUI:
                     ]
                 
                 # Create variables if they don't exist yet
+                if not hasattr(self, 'x1_var'):
+                    self.x1_var = tk.IntVar(value=self.area_vars[self.current_area][0])
+                if not hasattr(self, 'y1_var'):
+                    self.y1_var = tk.IntVar(value=self.area_vars[self.current_area][1])
+                if not hasattr(self, 'x2_var'):
+                    self.x2_var = tk.IntVar(value=self.area_vars[self.current_area][2])
+                if not hasattr(self, 'y2_var'):
+                    self.y2_var = tk.IntVar(value=self.area_vars[self.current_area][3])
                 if not hasattr(self, 'click_x_var'):
                     self.click_x_var = tk.IntVar(value=50)
                 if not hasattr(self, 'click_y_var'):
@@ -684,9 +773,10 @@ class ScreenSpyGUI:
                 # Load click coordinates
                 if "clicks" in config and len(config["clicks"]) == 4:
                     self.click_lists = config["clicks"]
-                    if len(self.click_lists[1]) > 0:
-                        self.click_x_var.set(str(self.click_lists[1][0][0]))
-                        self.click_y_var.set(str(self.click_lists[1][0][1]))
+                    # Update click coordinate variables for the current area
+                    if self.current_area > 0 and len(self.click_lists[self.current_area]) > 0:
+                        self.click_x_var.set(self.click_lists[self.current_area][0][0])
+                        self.click_y_var.set(self.click_lists[self.current_area][0][1])
                 else:
                     self.click_lists = [
                         [],  # Area 0 - no clicks
@@ -694,12 +784,19 @@ class ScreenSpyGUI:
                         [[50, 50]],  # Area 2
                         [[50, 50]]   # Area 3
                     ]
-                    self.click_x_var.set("50")
-                    self.click_y_var.set("50")
+                    if self.current_area > 0:
+                        self.click_x_var.set(50)
+                        self.click_y_var.set(50)
+                
+                # Update area coordinate variables for the current area
+                self.x1_var.set(self.area_vars[self.current_area][0])
+                self.y1_var.set(self.area_vars[self.current_area][1])
+                self.x2_var.set(self.area_vars[self.current_area][2])
+                self.y2_var.set(self.area_vars[self.current_area][3])
                 
                 # Load interval
                 if "interval" in config:
-                    self.interval_var.set(str(config.get("interval", 15)))
+                    self.interval_var.set(config.get("interval", 15))
                 
                 # Load model
                 if "model" in config:
@@ -740,7 +837,6 @@ class ScreenSpyGUI:
                 self.status_var.set("Using default configuration")
         except Exception as e:
             self.status_var.set(f"Error loading config: {str(e)}")
-            print(f"Error loading config: {e}")
             
             # Set default values
             self.area_vars = [
