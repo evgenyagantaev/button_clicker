@@ -114,15 +114,16 @@ class ImageAnalyzer:
             print(traceback.format_exc())
             raise
     
-    def detect_text_in_image(self, image_path):
+    def detect_text_in_image(self, image_path, text_to_detect="Accept Reject"):
         """
-        Detect if both 'Accept' and 'Reject' are present in an image.
+        Detect if a specific text phrase is present in an image.
         
         Args:
             image_path: The path to the image file.
+            text_to_detect: The text phrase to look for in the image (default: "Accept Reject").
             
         Returns:
-            bool: True if both 'Accept' and 'Reject' are detected, False otherwise.
+            bool: True if the text phrase is detected, False otherwise.
             
         Raises:
             Exception: If the API call fails.
@@ -131,12 +132,12 @@ class ImageAnalyzer:
             # Encode the image
             base64_image = self.encode_image(image_path)
             
-            # Prepare the messages with a specific question about the presence of both words
+            # Prepare the messages with a specific question about the presence of the text
             messages = [
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Are both the words 'Accept' and 'Reject' present in this image? Answer with yes or no."},
+                        {"type": "text", "text": f'Is the phrase "{text_to_detect}" present in this image? Answer with yes or no.'},
                         {
                             "type": "image_url",
                             "image_url": f"data:image/jpeg;base64,{base64_image}",
@@ -146,6 +147,7 @@ class ImageAnalyzer:
             ]
             
             print(f"Sending detection request to OpenAI API using model {self.model}")
+            print(f"Looking for text: \"{text_to_detect}\" in the image")
             
             # Call the API using the new client
             response = self.client.chat.completions.create(
@@ -162,18 +164,12 @@ class ImageAnalyzer:
             # Print the model's response
             print(f"\nModel detection response: {response_text}")
             
-            # Check if the response indicates both words are present
-            # Look for positive indicators
-            if re.search(r'\byes\b', response_text) or re.search(r'both.*present', response_text):
-                print("DETECTION RESULT: Both 'Accept' and 'Reject' are present")
+            # Check if the response indicates the text is present
+            if re.search(r'\byes\b', response_text) or re.search(f'{text_to_detect.lower()}.*present', response_text, re.IGNORECASE):
+                print(f"DETECTION RESULT: \"{text_to_detect}\" is present")
                 return True
             
-            # Look for specific mentions of both words together
-            if re.search(r'accept.*reject', response_text) and re.search(r'both', response_text):
-                print("DETECTION RESULT: Both 'Accept' and 'Reject' are present")
-                return True
-            
-            print("DETECTION RESULT: Both 'Accept' and 'Reject' are not present")    
+            print(f"DETECTION RESULT: \"{text_to_detect}\" is not present")    
             return False
         except Exception as e:
             print(f"Error in detect_text_in_image: {e}")

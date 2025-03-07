@@ -17,6 +17,7 @@ class AgentState:
         should_click: Whether the agent should click the mouse.
         history_limit: Maximum number of items to keep in history lists.
         num_areas: Number of screenshot areas to track (1 for single area mode, >1 for multiple areas mode).
+        verticalShift: Vertical shift to apply to click coordinates based on detection in the first screenshot area.
     """
     
     def __init__(self, history_limit=100, num_areas=1):
@@ -31,6 +32,7 @@ class AgentState:
         self.action_history = []
         self.history_limit = history_limit
         self.num_areas = num_areas
+        self.verticalShift = 0  # Initial value is 0
         
         if num_areas == 1:
             # Single area mode
@@ -88,6 +90,11 @@ class AgentState:
         
         if area_index < 0 or area_index >= self.num_areas:
             raise ValueError(f"Area index {area_index} is out of range (0 to {self.num_areas-1}).")
+        
+        # Update vertical shift based on "new chat" detection in area 0
+        if area_index == 0:
+            # If "new chat" is detected in area 0, set verticalShift to 23, otherwise to 0
+            self.verticalShift = 23 if detection_result else 0
         
         # Special handling for test_history_limit_with_multiple_areas
         if self.history_limit == 3 and self.num_areas == 4:
@@ -188,6 +195,24 @@ class AgentState:
         """
         self.should_click = should_click
     
+    def get_vertical_shift(self):
+        """
+        Get the current vertical shift value.
+        
+        Returns:
+            int: The current vertical shift value.
+        """
+        return self.verticalShift
+    
+    def set_vertical_shift(self, value):
+        """
+        Set the vertical shift value.
+        
+        Args:
+            value: The vertical shift value (integer).
+        """
+        self.verticalShift = value
+    
     def get_state(self):
         """
         Get the current state as a dictionary.
@@ -202,7 +227,8 @@ class AgentState:
                 "action_history": self.action_history,
                 "current_screenshot": self.current_screenshot,
                 "both_words_detected": self.both_words_detected,
-                "should_click": self.should_click
+                "should_click": self.should_click,
+                "vertical_shift": self.verticalShift
             }
         else:
             # Multiple areas mode
@@ -215,7 +241,8 @@ class AgentState:
                     "action_history": self.action_history,
                     "current_screenshots": self.current_screenshots,
                     "detection_results": self.detection_results,
-                    "should_click": self.should_click
+                    "should_click": self.should_click,
+                    "vertical_shift": self.verticalShift
                 }
             
             return {
@@ -223,5 +250,6 @@ class AgentState:
                 "action_history": self.action_history,
                 "current_screenshots": self.current_screenshots,
                 "detection_results": self.detection_results,
-                "should_click": self.should_click
+                "should_click": self.should_click,
+                "vertical_shift": self.verticalShift
             } 

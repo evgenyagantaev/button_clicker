@@ -28,6 +28,7 @@ class AgentStateDict(TypedDict):
     both_words_detected: bool
     detection_results: List[bool]
     should_click: bool
+    vertical_shift: int
 
 
 class ScreenSpyAgent:
@@ -69,6 +70,14 @@ class ScreenSpyAgent:
         self.agent_state = AgentState(num_areas=self.num_areas)
         self.running = False
         self.agent_thread = None
+        
+        # Define the text phrases to detect for each area
+        self.detection_phrases = [
+            "new chat",       # Area 0
+            "reject accept",  # Area 1
+            "resume the",     # Area 2
+            "try again"       # Area 3
+        ]
         
         # Store components in thread_local
         thread_local.image_analyzer = image_analyzer
@@ -115,14 +124,24 @@ class ScreenSpyAgent:
                 screenshot_paths = []
                 detection_results = []
                 
+                # Initialize verticalShift to 0
+                vertical_shift = 0
+                
                 for i, screenshot_taker in enumerate(self.screenshot_takers):
+                    # If this is not the first area, apply the vertical shift to the screenshot coordinates
+                    if i > 0 and vertical_shift != 0:
+                        original_y1 = screenshot_taker.y1
+                        screenshot_taker.y1 += vertical_shift
+                        screenshot_taker.y2 += vertical_shift
+                        print(f"Applied vertical shift {vertical_shift} to area {i}: ({screenshot_taker.x1}, {original_y1}) -> ({screenshot_taker.x1}, {screenshot_taker.y1})")
+                    
                     # Capture a screenshot for this area
-                    print(f"Capturing screenshot for area {i+1}...")
+                    print(f"Capturing screenshot for area {i}...")
                     screenshot = screenshot_taker.capture_screenshot()
                     screenshot_path = screenshot_taker.save_screenshot(screenshot)
                     
                     # Update the agent state
-                    print(f"Screenshot for area {i+1} saved to {screenshot_path}")
+                    print(f"Screenshot for area {i} saved to {screenshot_path}")
                     
                     if self.num_areas == 1:
                         self.agent_state.set_current_screenshot(screenshot_path)
@@ -131,9 +150,12 @@ class ScreenSpyAgent:
                     
                     screenshot_paths.append(screenshot_path)
                     
-                    # Analyze the screenshot
-                    print(f"Analyzing screenshot for area {i+1}...")
-                    detection_result = self.image_analyzer.detect_text_in_image(screenshot_path)
+                    # Analyze the screenshot with the appropriate text phrase
+                    print(f"Analyzing screenshot for area {i} looking for \"{self.detection_phrases[i]}\"...")
+                    detection_result = self.image_analyzer.detect_text_in_image(
+                        screenshot_path, 
+                        text_to_detect=self.detection_phrases[i]
+                    )
                     
                     # Update the agent state with the detection result
                     if self.num_areas == 1:
@@ -142,31 +164,23 @@ class ScreenSpyAgent:
                         self.agent_state.update_detection_for_area(i, detection_result)
                     
                     detection_results.append(detection_result)
-                    print(f"Area {i+1} detection result: {detection_result}")
+                    print(f"Area {i} detection result: {detection_result}")
+                    
+                    # For area 0, update the vertical shift based on the detection result
+                    if i == 0:
+                        # If "new chat" is detected in area 0, set verticalShift to 23, otherwise to 0
+                        vertical_shift = 23 if detection_result else 0
+                        self.agent_state.set_vertical_shift(vertical_shift)
+                        self.mouse_controller.set_vertical_shift(vertical_shift)
+                        print(f"Vertical shift set to: {vertical_shift}")
+                    
+                    # Perform clicks if text was detected in this area (except area 0)
+                    if i > 0 and detection_result:
+                        print(f"Detected the phrase \"{self.detection_phrases[i]}\" in area {i}, executing clicks...")
+                        self.mouse_controller.click_at_position(i)
                 
-                # Run the workflow
-                print("Running workflow...")
+                # Update the agent state with the vertical shift
                 state_dict = self.agent_state.get_state()
-                result_dict = self.workflow.invoke(state_dict)
-                
-                # Update the agent state from the result dictionary
-                if self.num_areas == 1:
-                    self.agent_state.detection_history = result_dict.get("detection_history", [])
-                    self.agent_state.action_history = result_dict.get("action_history", [])
-                    self.agent_state.current_screenshot = result_dict.get("current_screenshot", "")
-                    self.agent_state.both_words_detected = result_dict.get("both_words_detected", False)
-                    self.agent_state.should_click = result_dict.get("should_click", False)
-                    
-                    print(f"Words detected: {self.agent_state.both_words_detected}")
-                else:
-                    self.agent_state.detection_history = result_dict.get("detection_history", [])
-                    self.agent_state.action_history = result_dict.get("action_history", [])
-                    self.agent_state.detection_results = result_dict.get("detection_results", [False] * self.num_areas)
-                    self.agent_state.should_click = result_dict.get("should_click", False)
-                    
-                    print(f"Detection results: {self.agent_state.detection_results}")
-                
-                print(f"Should click: {self.agent_state.should_click}")
                 
                 # Wait for the next interval
                 if self.running:
