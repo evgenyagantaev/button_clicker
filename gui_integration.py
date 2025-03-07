@@ -65,7 +65,7 @@ class ScreenSpyGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Screen Spy")
-        self.root.geometry("550x500")
+        self.root.geometry("550x600")  # Increased height for area selector
         
         # Initialize variables
         self.status_var = tk.StringVar(value="Ready")
@@ -74,6 +74,11 @@ class ScreenSpyGUI:
         self.agent = None
         self.screenshot_thread = None
         self.running = True
+        
+        # Variables for multiple screenshot areas
+        self.num_areas = 4
+        self.current_area = 0  # Currently selected area (0-3)
+        self.area_vars = []  # Will hold all coordinate variables
         
         # Load saved configuration if available
         self.load_config()
@@ -199,31 +204,28 @@ class ScreenSpyGUI:
                         darkcolor="#3a3a3a",
                         arrowcolor=fg_color)
         
-        # Configure labelframe (group boxes)
-        style.configure('TLabelframe', 
-                        background=bg_color, 
-                        foreground=fg_color,
-                        bordercolor="#3a3a3a")
+        # Configure dropdown/combobox
+        style.configure('TCombobox', 
+                    fieldbackground=input_bg_color,
+                    background=input_bg_color,
+                    foreground=fg_color,
+                    arrowcolor=fg_color,
+                    bordercolor="#3a3a3a")
         
-        style.configure('TLabelframe.Label',
-                        background=bg_color,
-                        foreground=fg_color,
-                        font=('Arial', 9, 'bold'))
-        
-        # Create a specific style for the control panel
+        # Configure control panel frames
         style.configure('Control.TLabelframe', 
-                        background=input_bg_color, 
-                        foreground=fg_color,
+                        background=bg_color, 
+                        foreground=fg_color, 
                         bordercolor="#3a3a3a")
         
-        style.configure('Control.TLabelframe.Label',
-                        background=input_bg_color,
-                        foreground=fg_color,
+        style.configure('Control.TLabelframe.Label', 
+                        background=bg_color, 
+                        foreground=fg_color, 
                         font=('Arial', 9, 'bold'))
         
-        # Set specific style for status bar
+        # Configure status bar
         style.configure('Status.TLabel',
-                        background=input_bg_color,
+                        background="#1a1a1a",
                         foreground=fg_color,
                         relief='sunken')
         
@@ -235,8 +237,25 @@ class ScreenSpyGUI:
                         font=('Arial', 9, 'bold'))
     
     def create_control_panel(self):
+        # Area selection controls
+        area_frame = ttk.LabelFrame(self.root, text="Screenshot Area Selection", style='Control.TLabelframe')
+        area_frame.pack(fill=tk.X, padx=10, pady=10)
+        
+        # Create area selector
+        ttk.Label(area_frame, text="Select Area:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        self.area_selector_var = tk.IntVar(value=self.current_area)
+        area_selector = ttk.Combobox(area_frame, textvariable=self.area_selector_var, width=5,
+                                    values=["0", "1", "2", "3"])
+        area_selector.grid(row=0, column=1, sticky=tk.W, padx=5, pady=5)
+        area_selector.bind("<<ComboboxSelected>>", lambda e: self.select_area(self.area_selector_var.get()))
+        
+        # Area info display
+        self.area_info_var = tk.StringVar(value=f"Area {self.current_area}: ({self.get_area_coords(self.current_area)})")
+        area_info_label = ttk.Label(area_frame, textvariable=self.area_info_var)
+        area_info_label.grid(row=0, column=2, columnspan=2, sticky=tk.W, padx=5, pady=5)
+        
         # Screenshot area settings
-        control_frame = ttk.LabelFrame(self.root, text="Screenshot Area", style='Control.TLabelframe')
+        control_frame = ttk.LabelFrame(self.root, text="Screenshot Area Coordinates", style='Control.TLabelframe')
         control_frame.pack(fill=tk.X, padx=10, pady=10)
         
         # Create grid layout
@@ -245,28 +264,28 @@ class ScreenSpyGUI:
         
         # X1 control
         ttk.Label(control_frame, text="X1:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
-        self.x1_var = tk.IntVar(value=self.x1)
+        self.x1_var = tk.IntVar(value=self.coords[self.current_area][0])
         x1_spin = ttk.Spinbox(control_frame, from_=0, to=3000, textvariable=self.x1_var, width=10)
         x1_spin.grid(row=0, column=1, sticky=tk.W, padx=5, pady=5)
         self.x1_var.trace_add("write", lambda *args: self.update_coords())
         
         # Y1 control
         ttk.Label(control_frame, text="Y1:").grid(row=0, column=2, sticky=tk.W, padx=5, pady=5)
-        self.y1_var = tk.IntVar(value=self.y1)
+        self.y1_var = tk.IntVar(value=self.coords[self.current_area][1])
         y1_spin = ttk.Spinbox(control_frame, from_=0, to=3000, textvariable=self.y1_var, width=10)
         y1_spin.grid(row=0, column=3, sticky=tk.W, padx=5, pady=5)
         self.y1_var.trace_add("write", lambda *args: self.update_coords())
         
         # X2 control
         ttk.Label(control_frame, text="X2:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
-        self.x2_var = tk.IntVar(value=self.x2)
+        self.x2_var = tk.IntVar(value=self.coords[self.current_area][2])
         x2_spin = ttk.Spinbox(control_frame, from_=0, to=3000, textvariable=self.x2_var, width=10)
         x2_spin.grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
         self.x2_var.trace_add("write", lambda *args: self.update_coords())
         
         # Y2 control
         ttk.Label(control_frame, text="Y2:").grid(row=1, column=2, sticky=tk.W, padx=5, pady=5)
-        self.y2_var = tk.IntVar(value=self.y2)
+        self.y2_var = tk.IntVar(value=self.coords[self.current_area][3])
         y2_spin = ttk.Spinbox(control_frame, from_=0, to=3000, textvariable=self.y2_var, width=10)
         y2_spin.grid(row=1, column=3, sticky=tk.W, padx=5, pady=5)
         self.y2_var.trace_add("write", lambda *args: self.update_coords())
@@ -310,12 +329,42 @@ class ScreenSpyGUI:
         self.agent_button = ttk.Button(agent_frame, text="Start Agent", command=self.toggle_agent)
         self.agent_button.grid(row=0, column=4, rowspan=2, padx=10, pady=5)
     
+    def get_area_coords(self, area_index):
+        """Get the coordinate string for the given area index."""
+        coords = self.coords[area_index]
+        return f"{coords[0]},{coords[1]} to {coords[2]},{coords[3]}"
+
+    def select_area(self, area_index):
+        """Change the currently selected screenshot area."""
+        area_index = int(area_index)
+        if 0 <= area_index < self.num_areas:
+            self.current_area = area_index
+            
+            # Update coordinate spinboxes
+            self.x1_var.set(self.coords[self.current_area][0])
+            self.y1_var.set(self.coords[self.current_area][1])
+            self.x2_var.set(self.coords[self.current_area][2])
+            self.y2_var.set(self.coords[self.current_area][3])
+            
+            # Update area info text
+            self.area_info_var.set(f"Area {self.current_area}: ({self.get_area_coords(self.current_area)})")
+            
+            # Take a new screenshot for this area
+            self.take_screenshot()
+    
     def update_coords(self):
         try:
-            self.x1 = int(self.x1_var.get())
-            self.y1 = int(self.y1_var.get())
-            self.x2 = int(self.x2_var.get())
-            self.y2 = int(self.y2_var.get())
+            # Update the coordinates for the current area
+            self.coords[self.current_area] = [
+                int(self.x1_var.get()),
+                int(self.y1_var.get()),
+                int(self.x2_var.get()),
+                int(self.y2_var.get())
+            ]
+            
+            # Update area info text
+            self.area_info_var.set(f"Area {self.current_area}: ({self.get_area_coords(self.current_area)})")
+            
             self.save_config()
         except:
             pass
@@ -341,30 +390,47 @@ class ScreenSpyGUI:
     
     def take_screenshot(self):
         try:
+            # Get coordinates for the current area
+            x1, y1, x2, y2 = self.coords[self.current_area]
+            
             # Ensure valid coordinates (x1 < x2, y1 < y2)
-            left = min(self.x1, self.x2)
-            top = min(self.y1, self.y2)
-            right = max(self.x1, self.x2)
-            bottom = max(self.y1, self.y2)
+            left = min(x1, x2)
+            top = min(y1, y2)
+            right = max(x1, x2)
+            bottom = max(y1, y2)
             
             # Ensure valid dimensions
-            if right <= left or bottom <= top:
-                self.status_var.set("Error: Invalid dimensions")
-                return
+            width = right - left
+            height = bottom - top
             
-            # Take the screenshot
+            if width <= 0 or height <= 0:
+                raise ValueError("Invalid screenshot area dimensions")
+            
+            # Capture screenshot
             screenshot = ImageGrab.grab(bbox=(left, top, right, bottom))
             
-            # Save the screenshot
-            screenshot.save("current_screenshot.jpg")
-            
-            # Resize to fit the label
+            # Get image dimensions
             img_width, img_height = screenshot.size
-            label_width = self.image_label.winfo_width() or 450
-            label_height = self.image_label.winfo_height() or 300
             
-            # Calculate scale to fit while maintaining aspect ratio
-            scale = min(label_width / img_width, label_height / img_height)
+            # Calculate scale to fit in the display area
+            # Get display area dimensions
+            display_width = self.image_frame.winfo_width() - 10
+            display_height = self.image_frame.winfo_height() - 10
+            
+            # If dimensions are not available yet, set defaults
+            if display_width <= 0:
+                display_width = 500
+            if display_height <= 0:
+                display_height = 300
+            
+            # Calculate scale factors
+            width_scale = display_width / img_width
+            height_scale = display_height / img_height
+            
+            # Use the smaller scale to fit the image in the display
+            scale = min(width_scale, height_scale)
+            
+            # Calculate new dimensions
             new_width = int(img_width * scale)
             new_height = int(img_height * scale)
             
@@ -378,7 +444,7 @@ class ScreenSpyGUI:
                 # Update the label with the new image
                 self.image_label.configure(image=self.tk_image)
                 
-                self.status_var.set(f"Screenshot taken: {img_width}x{img_height} pixels")
+                self.status_var.set(f"Area {self.current_area} screenshot: {img_width}x{img_height} pixels")
             
         except Exception as e:
             self.status_var.set(f"Error taking screenshot: {str(e)}")
@@ -387,7 +453,7 @@ class ScreenSpyGUI:
         """Thread function to update the screenshot at regular intervals"""
         while self.running:
             self.take_screenshot()
-            time.sleep(3)  # Update every second for the preview
+            time.sleep(3)  # Update every 3 seconds for the preview
     
     def toggle_agent(self):
         """Start or stop the Screen Spy Agent"""
@@ -438,15 +504,19 @@ class ScreenSpyGUI:
                 
                 # Create components
                 try:
-                    screenshot_taker = ScreenshotTaker(
-                        min(self.x1, self.x2), 
-                        min(self.y1, self.y2), 
-                        max(self.x1, self.x2), 
-                        max(self.y1, self.y2), 
-                        self.interval
-                    )
+                    # Create screenshot takers for each area
+                    screenshot_takers = []
+                    for i in range(self.num_areas):
+                        x1, y1, x2, y2 = self.coords[i]
+                        screenshot_takers.append(ScreenshotTaker(
+                            min(x1, x2), 
+                            min(y1, y2), 
+                            max(x1, x2), 
+                            max(y1, y2), 
+                            self.interval
+                        ))
                 except Exception as e:
-                    self.status_var.set(f"Error creating screenshot taker: {str(e)}")
+                    self.status_var.set(f"Error creating screenshot takers: {str(e)}")
                     return
                     
                 try:
@@ -464,7 +534,7 @@ class ScreenSpyGUI:
                 
                 # Create agent
                 try:
-                    self.agent = ScreenSpyAgent(screenshot_taker, image_analyzer, mouse_controller, self.interval)
+                    self.agent = ScreenSpyAgent(screenshot_takers, image_analyzer, mouse_controller, self.interval)
                 except Exception as e:
                     self.status_var.set(f"Error creating agent: {str(e)}")
                     self.agent = None
@@ -512,10 +582,13 @@ class ScreenSpyGUI:
     def load_config(self):
         """Load configuration from file if available"""
         # Default values
-        self.x1 = 0
-        self.y1 = 0
-        self.x2 = 100
-        self.y2 = 100
+        # Create default coords for 4 areas
+        self.coords = [
+            [0, 0, 100, 100],      # Area 0
+            [100, 0, 200, 100],    # Area 1 
+            [0, 100, 100, 200],    # Area 2
+            [100, 100, 200, 200],  # Area 3
+        ]
         self.click_x = 50
         self.click_y = 50
         self.interval = 15
@@ -525,10 +598,19 @@ class ScreenSpyGUI:
             if os.path.exists(CONFIG_FILE):
                 with open(CONFIG_FILE, 'r') as f:
                     config = json.load(f)
-                    self.x1 = config.get('x1', self.x1)
-                    self.y1 = config.get('y1', self.y1)
-                    self.x2 = config.get('x2', self.x2)
-                    self.y2 = config.get('y2', self.y2)
+                    
+                    # Load area coordinates
+                    if "areas" in config:
+                        self.coords = config["areas"]
+                    else:
+                        # For backward compatibility, load the first area from old format
+                        self.coords[0] = [
+                            config.get('x1', 0),
+                            config.get('y1', 0),
+                            config.get('x2', 100),
+                            config.get('y2', 100)
+                        ]
+                    
                     self.click_x = config.get('click_x', self.click_x)
                     self.click_y = config.get('click_y', self.click_y)
                     self.interval = config.get('interval', self.interval)
@@ -540,10 +622,7 @@ class ScreenSpyGUI:
         """Save configuration to file"""
         try:
             config = {
-                'x1': self.x1,
-                'y1': self.y1,
-                'x2': self.x2,
-                'y2': self.y2,
+                'areas': self.coords,
                 'click_x': self.click_x,
                 'click_y': self.click_y,
                 'interval': self.interval,

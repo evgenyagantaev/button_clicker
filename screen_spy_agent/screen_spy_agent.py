@@ -6,7 +6,7 @@ import threading
 import time
 import os
 import traceback
-from typing import TypedDict, List, Optional, Dict, Any
+from typing import TypedDict, List, Optional, Dict, Any, Union
 from langchain_core.runnables import chain
 from langgraph.graph import END, StateGraph
 
@@ -21,10 +21,12 @@ thread_local = threading.local()
 
 # Define the state schema for langgraph
 class AgentStateDict(TypedDict):
-    detection_history: List[bool]
+    detection_history: List[Union[bool, List[bool]]]
     action_history: List[bool]
     current_screenshot: str
+    current_screenshots: List[str]
     both_words_detected: bool
+    detection_results: List[bool]
     should_click: bool
 
 
@@ -33,7 +35,7 @@ class ScreenSpyAgent:
     Main agent class that ties all components together.
     
     Attributes:
-        screenshot_taker: ScreenshotTaker instance.
+        screenshot_takers: List of ScreenshotTaker instances for multiple areas.
         image_analyzer: ImageAnalyzer instance.
         mouse_controller: MouseController instance.
         interval: Interval in seconds between screenshots.
@@ -48,16 +50,23 @@ class ScreenSpyAgent:
         Initialize the agent with the given components.
         
         Args:
-            screenshot_taker: ScreenshotTaker instance.
+            screenshot_taker: ScreenshotTaker instance or list of ScreenshotTaker instances.
             image_analyzer: ImageAnalyzer instance.
             mouse_controller: MouseController instance.
             interval: Interval in seconds between screenshots.
         """
-        self.screenshot_taker = screenshot_taker
+        # Check if screenshot_taker is a list (multiple areas) or a single instance
+        if isinstance(screenshot_taker, list):
+            self.screenshot_takers = screenshot_taker
+            self.num_areas = len(screenshot_taker)
+        else:
+            self.screenshot_takers = [screenshot_taker]
+            self.num_areas = 1
+        
         self.image_analyzer = image_analyzer
         self.mouse_controller = mouse_controller
         self.interval = interval
-        self.agent_state = AgentState()
+        self.agent_state = AgentState(num_areas=self.num_areas)
         self.running = False
         self.agent_thread = None
         
@@ -102,14 +111,38 @@ class ScreenSpyAgent:
         
         while self.running:
             try:
-                # Capture a screenshot
-                print("Capturing screenshot...")
-                screenshot = self.screenshot_taker.capture_screenshot()
-                screenshot_path = self.screenshot_taker.save_screenshot(screenshot)
+                # Process each screenshot area
+                screenshot_paths = []
+                detection_results = []
                 
-                # Update the agent state
-                print(f"Screenshot saved to {screenshot_path}")
-                self.agent_state.set_current_screenshot(screenshot_path)
+                for i, screenshot_taker in enumerate(self.screenshot_takers):
+                    # Capture a screenshot for this area
+                    print(f"Capturing screenshot for area {i+1}...")
+                    screenshot = screenshot_taker.capture_screenshot()
+                    screenshot_path = screenshot_taker.save_screenshot(screenshot)
+                    
+                    # Update the agent state
+                    print(f"Screenshot for area {i+1} saved to {screenshot_path}")
+                    
+                    if self.num_areas == 1:
+                        self.agent_state.set_current_screenshot(screenshot_path)
+                    else:
+                        self.agent_state.set_current_screenshot_for_area(i, screenshot_path)
+                    
+                    screenshot_paths.append(screenshot_path)
+                    
+                    # Analyze the screenshot
+                    print(f"Analyzing screenshot for area {i+1}...")
+                    detection_result = self.image_analyzer.detect_text_in_image(screenshot_path)
+                    
+                    # Update the agent state with the detection result
+                    if self.num_areas == 1:
+                        self.agent_state.update_detection(detection_result)
+                    else:
+                        self.agent_state.update_detection_for_area(i, detection_result)
+                    
+                    detection_results.append(detection_result)
+                    print(f"Area {i+1} detection result: {detection_result}")
                 
                 # Run the workflow
                 print("Running workflow...")
@@ -117,13 +150,22 @@ class ScreenSpyAgent:
                 result_dict = self.workflow.invoke(state_dict)
                 
                 # Update the agent state from the result dictionary
-                self.agent_state.detection_history = result_dict.get("detection_history", [])
-                self.agent_state.action_history = result_dict.get("action_history", [])
-                self.agent_state.current_screenshot = result_dict.get("current_screenshot", "")
-                self.agent_state.both_words_detected = result_dict.get("both_words_detected", False)
-                self.agent_state.should_click = result_dict.get("should_click", False)
+                if self.num_areas == 1:
+                    self.agent_state.detection_history = result_dict.get("detection_history", [])
+                    self.agent_state.action_history = result_dict.get("action_history", [])
+                    self.agent_state.current_screenshot = result_dict.get("current_screenshot", "")
+                    self.agent_state.both_words_detected = result_dict.get("both_words_detected", False)
+                    self.agent_state.should_click = result_dict.get("should_click", False)
+                    
+                    print(f"Words detected: {self.agent_state.both_words_detected}")
+                else:
+                    self.agent_state.detection_history = result_dict.get("detection_history", [])
+                    self.agent_state.action_history = result_dict.get("action_history", [])
+                    self.agent_state.detection_results = result_dict.get("detection_results", [False] * self.num_areas)
+                    self.agent_state.should_click = result_dict.get("should_click", False)
+                    
+                    print(f"Detection results: {self.agent_state.detection_results}")
                 
-                print(f"Words detected: {self.agent_state.both_words_detected}")
                 print(f"Should click: {self.agent_state.should_click}")
                 
                 # Wait for the next interval

@@ -29,15 +29,23 @@ class AgentNode:
         from screen_spy_agent.screen_spy_agent import thread_local
         image_analyzer = thread_local.image_analyzer
         
-        # Detect words in the screenshot
-        detection_result = image_analyzer.detect_text_in_image(state["current_screenshot"])
-        
-        # Update the state
-        new_state["both_words_detected"] = detection_result
-        new_state["detection_history"] = new_state["detection_history"] + [detection_result]
-        
-        # Return the state as a dictionary
-        return new_state
+        # Check if we're in single area or multiple areas mode
+        if "current_screenshots" in state and len(state.get("current_screenshots", [])) > 0:
+            # Multiple areas mode
+            # The detection has already been done in the agent_loop
+            # Just return the state as is
+            return new_state
+        else:
+            # Single area mode
+            # Detect words in the screenshot
+            detection_result = image_analyzer.detect_text_in_image(state["current_screenshot"])
+            
+            # Update the state
+            new_state["both_words_detected"] = detection_result
+            new_state["detection_history"] = new_state["detection_history"] + [detection_result]
+            
+            # Return the state as a dictionary
+            return new_state
     
     @staticmethod
     def decide_action(state):
@@ -53,8 +61,16 @@ class AgentNode:
         # Make a copy of the state to avoid modifying the original
         new_state = copy.deepcopy(state)
         
-        # Decide whether to click based on detection results
-        should_click = new_state["both_words_detected"]
+        # Check if we're in single area or multiple areas mode
+        if "detection_results" in state:
+            # Multiple areas mode
+            # Decide whether to click based on detection results
+            # Click if any area has a detection
+            should_click = any(state["detection_results"])
+        else:
+            # Single area mode
+            # Decide whether to click based on detection results
+            should_click = state["both_words_detected"]
         
         # Update the state
         new_state["should_click"] = should_click
