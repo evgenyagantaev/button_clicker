@@ -48,14 +48,14 @@ class ScreenshotTaker:
             raise ValueError("Interval must be greater than 0")
         self.interval = interval
     
-    def capture_screenshot(self):
+    def capture_screenshot(self, x1, y1, x2, y2):
         """
         Capture a screenshot of the defined screen region.
         
         Returns:
             PIL.Image: The captured screenshot.
         """
-        return ImageGrab.grab(bbox=(self.x1, self.y1, self.x2, self.y2))
+        return ImageGrab.grab(bbox=(x1, y1, x2, y2))
     
     def save_screenshot(self, image):
         """

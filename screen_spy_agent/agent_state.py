@@ -93,8 +93,8 @@ class AgentState:
         
         # Update vertical shift based on "new chat" detection in area 0
         if area_index == 0:
-            # If "new chat" is detected in area 0, set verticalShift to 23, otherwise to 0
-            self.verticalShift = 23 if detection_result else 0
+            # If "new chat" is detected in area 0, set verticalShift to -23, otherwise to 0
+            self.verticalShift = -23 if detection_result else 0
         
         # Special handling for test_history_limit_with_multiple_areas
         if self.history_limit == 3 and self.num_areas == 4:

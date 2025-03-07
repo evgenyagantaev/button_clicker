@@ -130,14 +130,18 @@ class ScreenSpyAgent:
                 for i, screenshot_taker in enumerate(self.screenshot_takers):
                     # If this is not the first area, apply the vertical shift to the screenshot coordinates
                     if i > 0 and vertical_shift != 0:
+                        original_x1 = screenshot_taker.x1
                         original_y1 = screenshot_taker.y1
-                        screenshot_taker.y1 += vertical_shift
-                        screenshot_taker.y2 += vertical_shift
-                        print(f"Applied vertical shift {vertical_shift} to area {i}: ({screenshot_taker.x1}, {original_y1}) -> ({screenshot_taker.x1}, {screenshot_taker.y1})")
-                    
+                        original_x2 = screenshot_taker.x2
+                        original_y2 = screenshot_taker.y2
+                        shifted_y1 = original_y1 + vertical_shift
+                        shifted_y2 = original_y2 + vertical_shift
+                        print(f"Applied vertical shift {vertical_shift} to area {i}: ({original_x1}, {original_y1}) -> ({original_x1}, {shifted_y1})")
+                        print(f"Applied vertical shift {vertical_shift} to area {i}: ({original_x2}, {original_y2}) -> ({original_x2}, {shifted_y2})")
+
                     # Capture a screenshot for this area
                     print(f"Capturing screenshot for area {i}...")
-                    screenshot = screenshot_taker.capture_screenshot()
+                    screenshot = screenshot_taker.capture_screenshot(original_x1, shifted_y1, original_x2, shifted_y2)
                     screenshot_path = screenshot_taker.save_screenshot(screenshot)
                     
                     # Update the agent state
@@ -168,8 +172,8 @@ class ScreenSpyAgent:
                     
                     # For area 0, update the vertical shift based on the detection result
                     if i == 0:
-                        # If "new chat" is detected in area 0, set verticalShift to 23, otherwise to 0
-                        vertical_shift = 23 if detection_result else 0
+                        # If "new chat" is detected in area 0, set verticalShift to -23, otherwise to 0
+                        vertical_shift = -23 if detection_result else 0
                         self.agent_state.set_vertical_shift(vertical_shift)
                         self.mouse_controller.set_vertical_shift(vertical_shift)
                         print(f"Vertical shift set to: {vertical_shift}")
