@@ -128,12 +128,16 @@ class ScreenSpyAgent:
                 vertical_shift = 0
                 
                 for i, screenshot_taker in enumerate(self.screenshot_takers):
+                    # Initialize variables with original coordinates first
+                    original_x1 = screenshot_taker.x1
+                    original_y1 = screenshot_taker.y1
+                    original_x2 = screenshot_taker.x2
+                    original_y2 = screenshot_taker.y2
+                    shifted_y1 = original_y1
+                    shifted_y2 = original_y2
+
                     # If this is not the first area, apply the vertical shift to the screenshot coordinates
                     if i > 0 and vertical_shift != 0:
-                        original_x1 = screenshot_taker.x1
-                        original_y1 = screenshot_taker.y1
-                        original_x2 = screenshot_taker.x2
-                        original_y2 = screenshot_taker.y2
                         shifted_y1 = original_y1 + vertical_shift
                         shifted_y2 = original_y2 + vertical_shift
                         print(f"Applied vertical shift {vertical_shift} to area {i}: ({original_x1}, {original_y1}) -> ({original_x1}, {shifted_y1})")
