@@ -1,3 +1,6 @@
 current_screenshot.jpg
-
 .env
+__pycache__/
+*.pyc
+screen_spy_agent/__pycache__/
+screen_spy_agent/venv/
