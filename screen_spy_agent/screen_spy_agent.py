@@ -192,8 +192,12 @@ class ScreenSpyAgent:
                 
                 # Wait for the next interval
                 if self.running:
-                    print(f"Waiting for {self.interval} seconds...")
-                    time.sleep(self.interval)
+                    if detection_results[1]:
+                        print("Detected the phrase \"reject accept\" in area 1, waiting for 3 seconds...")
+                        time.sleep(3)
+                    else:
+                        print(f"Waiting for {self.interval} seconds...")
+                        time.sleep(self.interval)
             
             except Exception as e:
                 print("Error in agent loop: ")
