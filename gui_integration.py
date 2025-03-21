@@ -65,7 +65,7 @@ class ScreenSpyGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Screen Spy")
-        self.root.geometry("550x600")  # Increased height for area selector
+        self.root.geometry("550x700")  # Increased height for cyclic prompt area
         
         # Initialize variables
         self.status_var = tk.StringVar(value="Ready")
@@ -114,6 +114,7 @@ class ScreenSpyGUI:
         # Other settings
         self.interval_var = tk.IntVar(value=15)
         self.model_var = tk.StringVar(value="vis-openai/gpt-4o-mini")
+        self.cyclic_prompt = ""  # Store the cyclic prompt
         
         # Initialize area info variable
         self.area_info_var = tk.StringVar(value=f"Area {self.current_area}: ({self.get_area_coords(self.current_area)})")
@@ -358,6 +359,24 @@ class ScreenSpyGUI:
         # Add start/stop agent button
         self.agent_button = ttk.Button(agent_frame, text="Start Agent", command=self.toggle_agent)
         self.agent_button.grid(row=0, column=4, rowspan=2, padx=10, pady=5)
+        
+        # Cyclic Prompt
+        cyclic_prompt_frame = ttk.LabelFrame(self.root, text="Cyclic Prompt", style='Control.TLabelframe')
+        cyclic_prompt_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Create a multiline text input
+        self.cyclic_prompt_text = tk.Text(cyclic_prompt_frame, height=8, wrap=tk.WORD, 
+                                     background="#1a1a1a", foreground="#d4d4d4")
+        self.cyclic_prompt_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Set initial value if saved
+        if hasattr(self, 'cyclic_prompt') and self.cyclic_prompt:
+            self.cyclic_prompt_text.insert(tk.END, self.cyclic_prompt)
+        
+        # Add a hint/label at the bottom of the frame
+        prompt_hint = ttk.Label(cyclic_prompt_frame, 
+                              text="Enter the prompt to be executed cyclically. Used for autonomous tasks.")
+        prompt_hint.pack(padx=5, pady=2, anchor=tk.W)
     
     def get_area_coords(self, area_index):
         """Get the coordinate string for the given area index."""
@@ -689,7 +708,13 @@ class ScreenSpyGUI:
                 
                 # Create agent
                 try:
-                    self.agent = ScreenSpyAgent(screenshot_takers, image_analyzer, mouse_controller, self.interval_var.get())
+                    # Get current cyclic prompt from text widget
+                    cyclic_prompt = ""
+                    if hasattr(self, 'cyclic_prompt_text'):
+                        cyclic_prompt = self.cyclic_prompt_text.get('1.0', tk.END).rstrip()
+                    
+                    self.agent = ScreenSpyAgent(screenshot_takers, image_analyzer, mouse_controller, 
+                                             self.interval_var.get(), cyclic_prompt)
                 except Exception as e:
                     self.status_var.set(f"Error creating agent: {str(e)}")
                     self.agent = None
@@ -802,6 +827,14 @@ class ScreenSpyGUI:
                 if "model" in config:
                     self.model_var.set(config.get("model", "vis-openai/gpt-4o-mini"))
                 
+                # Load cyclic prompt
+                if "cyclic_prompt" in config:
+                    self.cyclic_prompt = config.get("cyclic_prompt", "")
+                    if hasattr(self, 'cyclic_prompt_text'):
+                        # Clear existing text and insert the loaded value
+                        self.cyclic_prompt_text.delete('1.0', tk.END)
+                        self.cyclic_prompt_text.insert('1.0', self.cyclic_prompt)
+                
                 # For backward compatibility
                 if "click_x" in config and "click_y" in config:
                     # Update the click lists for areas 1-3 with the legacy click coordinates
@@ -863,12 +896,17 @@ class ScreenSpyGUI:
     def save_config(self):
         """Save configuration to file"""
         try:
+            # Get the current cyclic prompt from the text widget if it exists
+            if hasattr(self, 'cyclic_prompt_text'):
+                self.cyclic_prompt = self.cyclic_prompt_text.get('1.0', tk.END).rstrip()
+            
             # Create a configuration dictionary with the current settings
             config = {
                 "areas": self.area_vars,
                 "clicks": self.click_lists,
                 "interval": int(self.interval_var.get()),
-                "model": self.model_var.get()
+                "model": self.model_var.get(),
+                "cyclic_prompt": self.cyclic_prompt
             }
             
             # Save to file

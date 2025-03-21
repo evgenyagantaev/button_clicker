@@ -85,14 +85,14 @@
     - [x] a. Add timestamp tracking for inactivity detection
     - [x] b. Add state flags for the cyclic workflow
 
-- [ ] 4. Update the GUI Integration
+- [x] 4. Update the GUI Integration
     ```
     gui_integration.py
     ```
-    - [ ] a. Add a multi-line text area for the cyclic prompt
-    - [ ] b. Update the layout to accommodate the new field
-    - [ ] c. Modify the save/load configuration methods to include the prompt
-    - [ ] d. Update the agent toggle function to use the new workflow
+    - [x] a. Add a multi-line text area for the cyclic prompt
+    - [x] b. Update the layout to accommodate the new field
+    - [x] c. Modify the save/load configuration methods to include the prompt
+    - [x] d. Update the agent toggle function to use the new workflow
 
 - [ ] 5. Add functionality to detect gray background in Area 2
     ```
