@@ -1,22 +1,3 @@
-# Current task implementation manifest
-
-Внимательно прочитай спецификацию задачи;
-составь план выполнения задачи и помести его в этот файл;
-пункты плана должны поддерживать возможность отметки об исполнении;
-первым пунктом плана всегда должен быть прогон всех имеющихся юнит-тестов с фиксацией результата 
-(не все тесты обязательно должны проходить);
-при выполнении задачи нужно строго придерживаться методологии TDD;
-прежде чем модифицировать существующий и/или добавлять новый код, 
-нужно написать все необходимые тесты на этот модифицируемый или новый код;
-при модификации существующего кода, следует сначала модифицировать имеющиеся тесты, 
-относящиеся к этому коду, с учетом его планируемых изменений;
-последним пунктом плана всегда должен быть прогон всех юнит-тестов;
-этот пункт считается завершённым только когда все тесты проходят;
-план должен состоять из трёх частей:
-первая часть - написание/модификация всех необходимых юнит-тестов
-вторая часть - написание кода, который полностью совсместим с уже имеющимися юнит-тестами;
-третья часть - контрольный прогон всех юнит-тестов с новым кодом;
-после того, как план создан и сохранён в файле, прекрати работу
 
 ## Task specification
 
@@ -48,15 +29,94 @@
 
 ### Part 1: Writing/Modifying Unit Tests
 
+- [ ] 1. Run all existing unit tests to check current system functionality
+    ```
+    pytest tests/
+    ```
+
+- [ ] 2. Create a new test file for CyclicPromptManager class
+    ```
+    tests/test_cyclic_prompt_manager.py
+    ```
+    - [ ] a. Test initialization with default values
+    - [ ] b. Test setting and getting the cyclic prompt
+    - [ ] c. Test clipboard operations (copy/paste)
+
+- [ ] 3. Modify ScreenSpyAgent tests to include new functionality
+    ```
+    tests/test_screen_spy_agent.py
+    ```
+    - [ ] a. Create tests for the new start sequence method
+    - [ ] b. Test the condition monitoring logic (detect "new chat" in Area 1)
+    - [ ] c. Test the inactivity detection in Area 2 (gray background for 2 minutes)
+    - [ ] d. Test the cyclic behavior by mocking the conditions
+
+- [ ] 4. Update GUI tests to include new UI elements
+    ```
+    tests/test_gui_integration.py  
+    ```
+    - [ ] a. Test the new multi-line text input field
+    - [ ] b. Test saving and loading cyclic prompt from configuration
+    - [ ] c. Test integration with the agent system
 
 ### Part 2: Implementing Code Changes
 
+- [ ] 1. Create a new CyclicPromptManager class
+    ```
+    screen_spy_agent/cyclic_prompt_manager.py
+    ```
+    - [ ] a. Implement storage for the cyclic prompt
+    - [ ] b. Add clipboard integration (pyperclip or equivalent)
+    - [ ] c. Create method for executing the start sequence actions
 
+- [ ] 2. Update the ScreenSpyAgent class
+    ```
+    screen_spy_agent/screen_spy_agent.py
+    ```
+    - [ ] a. Add a new field for the CyclicPromptManager
+    - [ ] b. Modify the agent_loop method to check for restart conditions
+    - [ ] c. Implement the start sequence with specific clicks and pauses
+    - [ ] d. Add timer functionality to track inactivity in Area 2
+    - [ ] e. Add logic to detect empty/gray screen in Area 2
+
+- [ ] 3. Modify the AgentState class to include new state tracking
+    ```
+    screen_spy_agent/agent_state.py
+    ```
+    - [ ] a. Add timestamp tracking for inactivity detection
+    - [ ] b. Add state flags for the cyclic workflow
+
+- [ ] 4. Update the GUI Integration
+    ```
+    gui_integration.py
+    ```
+    - [ ] a. Add a multi-line text area for the cyclic prompt
+    - [ ] b. Update the layout to accommodate the new field
+    - [ ] c. Modify the save/load configuration methods to include the prompt
+    - [ ] d. Update the agent toggle function to use the new workflow
+
+- [ ] 5. Add functionality to detect gray background in Area 2
+    ```
+    screen_spy_agent/image_analyzer.py
+    ```
+    - [ ] a. Create a method to detect empty/gray screens
+    - [ ] b. Add parameter for tolerance/threshold of detection
 
 ### Part 3: Final Testing
 
+- [ ] 1. Run all unit tests to verify implementation
+    ```
+    pytest tests/
+    ```
 
+- [ ] 2. Test with real UI interaction
+    - [ ] a. Manual test of the full cycle with actual screen captures
+    - [ ] b. Verify the restart conditions work correctly
+    - [ ] c. Check that the UI updates properly during the cycle
 
 ## Implementation Summary
 
+The implementation adds a cyclic prompt feature to the Screen Spy Agent. Users will be able to enter a multi-line prompt in the GUI that will be automatically entered into the target application when the agent runs. The agent will follow a predefined sequence of clicks and pauses to start a new conversation, then monitor for either "new chat" appearance in Area 1 or 2 minutes of inactivity in Area 2 to restart the cycle.
+
+This feature enhances automation capabilities by allowing continuous processing of tasks without manual intervention. The implementation follows TDD methodology to ensure reliability and maintainability.
 
