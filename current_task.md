@@ -94,12 +94,12 @@
     - [x] c. Modify the save/load configuration methods to include the prompt
     - [x] d. Update the agent toggle function to use the new workflow
 
-- [ ] 5. Add functionality to detect gray background in Area 2
+- [x] 5. Add functionality to detect gray background in Area 2
     ```
     screen_spy_agent/image_analyzer.py
     ```
-    - [ ] a. Create a method to detect empty/gray screens
-    - [ ] b. Add parameter for tolerance/threshold of detection
+    - [x] a. Create a method to detect empty/gray screens
+    - [x] b. Add parameter for tolerance/threshold of detection
 
 ### Part 3: Final Testing
 

@@ -7,6 +7,8 @@ import base64
 import openai
 from openai import OpenAI
 import re
+import numpy as np
+from PIL import Image
 
 
 class ImageAnalyzer:
@@ -175,4 +177,62 @@ class ImageAnalyzer:
             print(f"Error in detect_text_in_image: {e}")
             import traceback
             print(traceback.format_exc())
-            raise 
+            raise
+    
+    def is_gray_background(self, image_path, color_variance_threshold=30):
+        """
+        Detect if an image has a nearly uniform gray background.
+        
+        This method analyzes the color distribution in an image to determine
+        if it's predominantly a uniform gray color without significant text or elements.
+        
+        Args:
+            image_path: The path to the image file.
+            color_variance_threshold: Maximum acceptable variation in color channels to consider
+                                     the image as gray background (default: 30).
+                                     Higher values are more lenient in what's considered "gray".
+            
+        Returns:
+            bool: True if the image is predominantly a uniform gray background, False otherwise.
+        """
+        try:
+            # Open the image
+            img = Image.open(image_path)
+            
+            # Convert to RGB if not already
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            # Convert to numpy array for easier analysis
+            img_array = np.array(img)
+            
+            # Calculate standard deviation for each color channel
+            r_std = np.std(img_array[:,:,0])
+            g_std = np.std(img_array[:,:,1])
+            b_std = np.std(img_array[:,:,2])
+            
+            # Calculate mean values for each channel
+            r_mean = np.mean(img_array[:,:,0])
+            g_mean = np.mean(img_array[:,:,1])
+            b_mean = np.mean(img_array[:,:,2])
+            
+            # Check if standard deviations are small (indicating uniform color)
+            is_uniform = (r_std < color_variance_threshold and 
+                          g_std < color_variance_threshold and 
+                          b_std < color_variance_threshold)
+            
+            # Check if the mean values of all channels are similar (gray means R≈G≈B)
+            max_channel_diff = max(abs(r_mean - g_mean), abs(r_mean - b_mean), abs(g_mean - b_mean))
+            is_gray = max_channel_diff < color_variance_threshold
+            
+            print(f"Gray background detection results: Uniform={is_uniform}, Gray={is_gray}")
+            print(f"Channel std devs: R={r_std:.2f}, G={g_std:.2f}, B={b_std:.2f}")
+            print(f"Channel means: R={r_mean:.2f}, G={g_mean:.2f}, B={b_mean:.2f}")
+            
+            return is_uniform and is_gray
+            
+        except Exception as e:
+            print(f"Error in is_gray_background: {e}")
+            import traceback
+            print(traceback.format_exc())
+            return False 

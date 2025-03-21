@@ -1,6 +1,9 @@
 import pytest
 import base64
 import os
+import numpy as np
+import tempfile
+from PIL import Image
 from unittest.mock import patch, MagicMock
 from screen_spy_agent.image_analyzer import ImageAnalyzer
 
@@ -148,4 +151,47 @@ class TestImageAnalyzer:
         
         # Call method and verify it handles the exception
         with pytest.raises(Exception, match="API Error"):
-            analyzer.analyze_image(sample_image) 
+            analyzer.analyze_image(sample_image)
+            
+    def test_is_gray_background(self):
+        """Test that gray background detection works correctly."""
+        analyzer = ImageAnalyzer(
+            api_key="test_key",
+            api_base="https://api.example.com",
+            model="test-model"
+        )
+        
+        # Create temporary gray image
+        with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as gray_img:
+            img = Image.new('RGB', (100, 100), color=(128, 128, 128))  # Medium gray
+            img.save(gray_img.name)
+            
+            # Test with default threshold
+            assert analyzer.is_gray_background(gray_img.name) is True
+            
+            # Test with strict threshold
+            assert analyzer.is_gray_background(gray_img.name, color_variance_threshold=10) is True
+        
+        # Create temporary colored image
+        with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as colored_img:
+            img = Image.new('RGB', (100, 100))
+            # Create colored pixels
+            pixels = np.array([
+                [(r, g, b) for b in range(100)] 
+                for r in range(100) 
+                for g in range(100)
+            ])[:100, :100]
+            img = Image.fromarray(np.uint8(pixels))
+            img.save(colored_img.name)
+            
+            # Test with default threshold
+            assert analyzer.is_gray_background(colored_img.name) is False
+            
+            # Test with loose threshold
+            assert analyzer.is_gray_background(colored_img.name, color_variance_threshold=200) is False
+        
+        # Cleanup
+        if os.path.exists(gray_img.name):
+            os.remove(gray_img.name)
+        if os.path.exists(colored_img.name):
+            os.remove(colored_img.name) 
