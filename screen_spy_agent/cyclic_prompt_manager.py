@@ -68,11 +68,11 @@ class CyclicPromptManager:
         import time
         
         # Click to start new chat
-        mouse_controller.click(1818, 46)
+        mouse_controller.click_at_coordinates(1818, 46)
         time.sleep(pause_duration)
         
         # Click to focus prompt input field
-        mouse_controller.click(1419, 108)
+        mouse_controller.click_at_coordinates(1419, 108)
         time.sleep(pause_duration)
         
         # Copy prompt to clipboard and paste
@@ -81,4 +81,4 @@ class CyclicPromptManager:
         time.sleep(pause_duration)
         
         # Click send button
-        mouse_controller.click(1874, 141) 
+        mouse_controller.click_at_coordinates(1874, 141) 

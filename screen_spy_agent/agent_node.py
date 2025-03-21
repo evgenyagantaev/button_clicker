@@ -12,12 +12,13 @@ class AgentNode:
     """
     
     @staticmethod
-    def detect_words_in_screenshot(state):
+    def detect_words_in_screenshot(state, image_analyzer=None):
         """
         Node for detecting words in a screenshot.
         
         Args:
             state: The current state dictionary.
+            image_analyzer: Optional image analyzer to use for detection.
             
         Returns:
             dict: The updated state as a dictionary.
@@ -25,9 +26,10 @@ class AgentNode:
         # Make a copy of the state to avoid modifying the original
         new_state = copy.deepcopy(state)
         
-        # Use the image analyzer from the thread-local state
-        from screen_spy_agent.screen_spy_agent import thread_local
-        image_analyzer = thread_local.image_analyzer
+        # Use the provided image analyzer or get it from thread-local state
+        if image_analyzer is None:
+            from screen_spy_agent.screen_spy_agent import thread_local
+            image_analyzer = thread_local.image_analyzer
         
         # Check if we're in single area or multiple areas mode
         if isinstance(new_state, dict) and "current_screenshots" in new_state and len(new_state.get("current_screenshots", [])) > 0:
@@ -64,11 +66,11 @@ class AgentNode:
                         # Update the AgentState object
                         new_state.update_detection(detection_result)
                         
-                        # Return the updated state dictionary
-                        return new_state.get_state()
+                        # Return the updated object
+                        return new_state
                 else:
                     # Not an AgentState object - return as is
-                    return state_dict
+                    return new_state
             except (AttributeError, TypeError):
                 # Fallback - return the input state
                 return state
@@ -142,12 +144,13 @@ class AgentNode:
                 return state
     
     @staticmethod
-    def execute_action(state):
+    def execute_action(state, mouse_controller=None):
         """
         Node for executing the decided action.
         
         Args:
             state: The current state dictionary.
+            mouse_controller: Optional mouse controller to use for actions.
             
         Returns:
             dict: The updated state as a dictionary.
@@ -155,9 +158,10 @@ class AgentNode:
         # Make a copy of the state to avoid modifying the original
         new_state = copy.deepcopy(state)
         
-        # Use the mouse controller from the thread-local state
-        from screen_spy_agent.screen_spy_agent import thread_local
-        mouse_controller = thread_local.mouse_controller
+        # Use the provided mouse controller or get it from thread-local state
+        if mouse_controller is None:
+            from screen_spy_agent.screen_spy_agent import thread_local
+            mouse_controller = thread_local.mouse_controller
         
         # Check if we're dealing with a dictionary or an AgentState object
         if isinstance(new_state, dict):

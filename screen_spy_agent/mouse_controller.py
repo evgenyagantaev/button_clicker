@@ -11,6 +11,8 @@ class MouseController:
     Class for controlling mouse movements and clicks.
     
     Attributes:
+        target_x: The x-coordinate to click at.
+        target_y: The y-coordinate to click at.
         click_coordinates: A list of lists where each inner list contains coordinate pairs [x, y] for each area.
         vertical_shift: Vertical shift to apply to click coordinates.
     """
@@ -20,14 +22,18 @@ class MouseController:
         Initialize a MouseController with the given target coordinates.
         
         Args:
-            target_x: The default x-coordinate to click at (legacy).
-            target_y: The default y-coordinate to click at (legacy).
+            target_x: The default x-coordinate to click at.
+            target_y: The default y-coordinate to click at.
             
         Raises:
             ValueError: If coordinates are negative.
         """
         if target_x < 0 or target_y < 0:
             raise ValueError("Coordinates must be non-negative")
+        
+        # Store target coordinates for backward compatibility
+        self.target_x = target_x
+        self.target_y = target_y
         
         # Initialize with a default click for each of the 4 areas
         self.click_coordinates = [
@@ -112,6 +118,20 @@ class MouseController:
         except Exception as e:
             print(f"Error clicking at positions for area {area_index}: {e}")
             return False
+    
+    def click_at_coordinates(self, x, y):
+        """
+        Simulate a mouse click at the specified coordinates.
+        This method is a wrapper around the click method for backward compatibility.
+        
+        Args:
+            x: The x-coordinate to click at.
+            y: The y-coordinate to click at.
+            
+        Returns:
+            bool: True if click was successful, False otherwise.
+        """
+        return self.click(x, y)
     
     def click(self, x, y):
         """

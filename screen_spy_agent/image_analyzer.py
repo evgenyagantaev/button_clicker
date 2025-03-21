@@ -235,4 +235,27 @@ class ImageAnalyzer:
             print(f"Error in is_gray_background: {e}")
             import traceback
             print(traceback.format_exc())
-            return False 
+            return False
+    
+    def detect_empty_screen(self, image_path, threshold=30):
+        """
+        Detect if a screenshot shows an empty or gray screen, indicating inactivity.
+        
+        This is a specialized method used for detecting when Area 2 is inactive,
+        which is indicated by a uniform gray background with no text or UI elements.
+        
+        Args:
+            image_path: The path to the screenshot.
+            threshold: The color variance threshold to use (default: 30).
+                      Higher values make the detection more lenient.
+                
+        Returns:
+            bool: True if the screenshot shows an empty/gray screen, False otherwise.
+        """
+        print(f"Detecting empty screen in {image_path}...")
+        
+        # Use the existing gray background detection method
+        is_empty = self.is_gray_background(image_path, color_variance_threshold=threshold)
+        
+        print(f"Empty screen detection result: {is_empty}")
+        return is_empty 

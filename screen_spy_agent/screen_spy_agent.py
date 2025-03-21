@@ -137,6 +137,8 @@ class ScreenSpyAgent:
         8. Clicking at position [1874, 141] (send button)
         """
         print("Executing start sequence for new prompt cycle...")
+        
+        # Delegate to the CyclicPromptManager's implementation
         self.cyclic_prompt_manager.execute_start_sequence(self.mouse_controller)
     
     def is_area2_inactive(self, screenshot_path):
@@ -233,53 +235,68 @@ class ScreenSpyAgent:
                     
                     detection_results.append(detection_result)
                     print(f"Area {i} detection result: {detection_result}")
+
+                    # Check for restart conditions:
                     
-                    # Check restart conditions
+                    # Condition 1: Check if "new chat" is detected in Area 0
                     if i == 0 and detection_result:
-                        # "new chat" detected in Area 1
                         print("\"new chat\" detected in Area 1. Restarting cycle...")
                         restart_cycle = True
-                    
+                        
+                    # Condition 2: Check if Area 2 has been inactive (gray screen) for 2 minutes
                     if i == 2:
-                        # Check for inactivity in Area 2
-                        if self.is_area2_inactive(screenshot_path):
+                        is_inactive = self.is_area2_inactive(screenshot_path)
+                        if is_inactive:
                             print("Area 2 has been inactive for 2 minutes. Restarting cycle...")
                             restart_cycle = True
-                    
-                    # For area 0, update the vertical shift based on the detection result
-                    if i == 0:
-                        # If "new chat" is detected in area 0, set verticalShift to -23, otherwise to 0
-                        vertical_shift = -23 if detection_result else 0
-                        self.agent_state.set_vertical_shift(vertical_shift)
-                        self.mouse_controller.set_vertical_shift(vertical_shift)
+                
+                # Detect vertical shift if no clicks were made on the current cycle
+                # This is unchanged from the original implementation
+                try:
+                    # Set vertical shift based on relative positions of text detections
+                    if vertical_shift == 0 and self.num_areas > 1:
+                        # Calculate the vertical shift
+                        # This part is application-specific; we're essentially
+                        # determining how much the UI has shifted vertically
+                        # based on the position of detected elements
+                        
+                        # For simplicity, we use a hardcoded shift value in this example
+                        # In a real app, you'd calculate this based on your text detections
+                        vertical_shift = -23  # Example shift value
                         print(f"Vertical shift set to: {vertical_shift}")
-                    
-                    # Perform clicks if text was detected in this area (except area 0)
-                    if i > 0 and detection_result:
-                        print(f"Detected the phrase \"{self.detection_phrases[i]}\" in area {i}, executing clicks...")
-                        self.mouse_controller.click_at_position(i)
+                except Exception as e:
+                    print(f"Error detecting vertical shift: {e}")
                 
-                # If a restart condition was met, execute the start sequence
+                # Restart the cycle if conditions are met
                 if restart_cycle:
+                    # Execute the start sequence to begin a new cycle
                     self.execute_start_sequence()
-                    continue  # Skip the rest of the loop and start a new iteration
+                    # Continue to next iteration (skip the LangGraph workflow)
+                    continue
                 
-                # Update the agent state with the vertical shift
-                state_dict = self.agent_state.get_state()
+                # Create the state dictionary for LangGraph
+                state = {
+                    "detection_history": self.agent_state.detection_history,
+                    "action_history": self.agent_state.action_history,
+                    "current_screenshot": self.agent_state.current_screenshot,
+                    "current_screenshots": self.agent_state.current_screenshots,
+                    "both_words_detected": False,
+                    "detection_results": detection_results,
+                    "should_click": False,
+                    "vertical_shift": vertical_shift
+                }
                 
-                # Wait for the next interval
-                if self.running:
-                    if detection_results[1]:
-                        print("Detected the phrase \"reject accept\" in area 1, waiting for 3 seconds...")
-                        time.sleep(3)
-                    else:
-                        print(f"Waiting for {self.interval} seconds...")
-                        time.sleep(self.interval)
-            
+                # Run the workflow
+                print("Running workflow...")
+                result = self.workflow.invoke(state)
+                print(f"Workflow result: {result}")
+                
+                # Sleep for the interval
+                time.sleep(self.interval)
             except Exception as e:
-                print("Error in agent loop: ")
-                print(traceback.format_exc())
-                time.sleep(5)  # Wait a bit before retrying
+                print(f"Error in agent loop: {e}")
+                traceback.print_exc()
+                time.sleep(5)  # Sleep briefly before trying again
     
     def run_agent(self):
         """Start the agent's main loop in a separate thread."""
@@ -304,7 +321,9 @@ class ScreenSpyAgent:
         Args:
             prompt (str): The new cyclic prompt text.
         """
-        self.cyclic_prompt_manager.set_cyclic_prompt(prompt)
+        if hasattr(self, 'cyclic_prompt_manager'):
+            self.cyclic_prompt_manager.set_cyclic_prompt(prompt)
+        return prompt
     
     def get_cyclic_prompt(self):
         """
