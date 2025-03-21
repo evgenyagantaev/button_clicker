@@ -158,20 +158,25 @@ class TestScreenSpyAgent:
         mock_screenshot_taker = MagicMock()
         mock_image_analyzer = MagicMock()
         mock_mouse_controller = MagicMock()
-        
+
         # Setup mock screenshot taker
         mock_screenshot = MagicMock()
         mock_screenshot_taker.capture_screenshot.return_value = mock_screenshot
         mock_screenshot_taker.save_screenshot.return_value = "/path/to/screenshot.jpg"
-        
-        # Create agent - manually execute agent_loop without threading
+
+        # Create a real CyclicPromptManager with empty prompt
+        from screen_spy_agent.cyclic_prompt_manager import CyclicPromptManager
+        real_prompt_manager = CyclicPromptManager("")
+
+        # Create agent with empty cyclic prompt - shouldn't trigger start sequence
         agent = ScreenSpyAgent(
             screenshot_taker=mock_screenshot_taker,
             image_analyzer=mock_image_analyzer,
             mouse_controller=mock_mouse_controller,
-            interval=15
+            interval=15,
+            cyclic_prompt=""  # Empty prompt, shouldn't trigger start sequence
         )
-        
+
         # Setup mock workflow with a simple return value
         workflow_result = {
             "detection_history": [],
@@ -183,27 +188,32 @@ class TestScreenSpyAgent:
         agent.workflow = MagicMock()
         agent.workflow.invoke.return_value = workflow_result
         
+        # Make image analyzer not detect "new chat" to avoid restart cycle
+        mock_image_analyzer.detect_text_in_image.return_value = False
+
         # Make the agent stop after one iteration
         def stop_after_one_iteration(*args, **kwargs):
             agent.running = False
             return None
-        
+
         mock_sleep.side_effect = stop_after_one_iteration
-        
+
         # Set running to True before calling agent_loop
         agent.running = True
-        
+
         # Call method directly
         agent.agent_loop()
-        
+
+        # Since we used an empty prompt, execute_start_sequence shouldn't be called
+
         # Verify capture and save were called
         assert mock_screenshot_taker.capture_screenshot.call_count == 1
         assert mock_screenshot_taker.save_screenshot.call_count == 1
         assert mock_screenshot_taker.save_screenshot.call_args == call(mock_screenshot)
-        
+
         # Verify workflow was invoked
         assert agent.workflow.invoke.call_count == 1
-        
+
         # Verify sleep was called
         assert mock_sleep.call_count == 1
         assert mock_sleep.call_args == call(15)
@@ -218,30 +228,32 @@ class TestScreenSpyAgent:
         
         # Setup mock screenshot takers
         mock_screenshots = [MagicMock() for _ in range(4)]
-        for i, (taker, screenshot) in enumerate(zip(mock_screenshot_takers, mock_screenshots)):
-            taker.capture_screenshot.return_value = screenshot
-            taker.save_screenshot.return_value = f"/path/to/screenshot_{i}.jpg"
+        for i, (mock_taker, mock_screenshot) in enumerate(zip(mock_screenshot_takers, mock_screenshots)):
+            mock_taker.capture_screenshot.return_value = mock_screenshot
+            mock_taker.save_screenshot.return_value = f"/path/to/screenshot_{i}.jpg"
         
         # Create agent - manually execute agent_loop without threading
         agent = ScreenSpyAgent(
             screenshot_taker=mock_screenshot_takers,
             image_analyzer=mock_image_analyzer,
             mouse_controller=mock_mouse_controller,
-            interval=15
+            interval=15,
+            cyclic_prompt=""  # Empty prompt, shouldn't trigger start sequence
         )
         
-        # Setup mock workflow with a simple return value for each area
-        workflow_results = [
-            {
-                "detection_history": [[]],
-                "action_history": [[]],
-                "current_screenshots": ["/path/to/screenshot_0.jpg", "/path/to/screenshot_1.jpg", "/path/to/screenshot_2.jpg", "/path/to/screenshot_3.jpg"],
-                "detection_results": [False, False, False, False],
-                "should_click": False
-            }
-        ]
+        # Setup mock workflow with a simple return value
+        workflow_result = {
+            "detection_history": [],
+            "action_history": [],
+            "current_screenshots": [f"/path/to/screenshot_{i}.jpg" for i in range(4)],
+            "both_words_detected": False,
+            "should_click": False
+        }
         agent.workflow = MagicMock()
-        agent.workflow.invoke.return_value = workflow_results[0]
+        agent.workflow.invoke.return_value = workflow_result
+        
+        # Make image analyzer not detect "new chat" to avoid restart cycle
+        mock_image_analyzer.detect_text_in_image.return_value = False
         
         # Make the agent stop after one iteration
         def stop_after_one_iteration(*args, **kwargs):

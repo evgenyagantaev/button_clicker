@@ -175,8 +175,9 @@ class ScreenSpyAgent:
         thread_local.image_analyzer = self.image_analyzer
         thread_local.mouse_controller = self.mouse_controller
         
-        # Execute the start sequence at the beginning
-        self.execute_start_sequence()
+        # Execute the start sequence only at the beginning if in cyclic mode
+        if self.cyclic_prompt_manager and self.cyclic_prompt_manager.get_cyclic_prompt():
+            self.execute_start_sequence()
         
         while self.running:
             try:
@@ -278,13 +279,19 @@ class ScreenSpyAgent:
                 state = {
                     "detection_history": self.agent_state.detection_history,
                     "action_history": self.agent_state.action_history,
-                    "current_screenshot": self.agent_state.current_screenshot,
-                    "current_screenshots": self.agent_state.current_screenshots,
                     "both_words_detected": False,
                     "detection_results": detection_results,
                     "should_click": False,
                     "vertical_shift": vertical_shift
                 }
+                
+                # Add screenshot info based on mode (single area vs multiple areas)
+                if self.agent_state.num_areas == 1:
+                    state["current_screenshot"] = self.agent_state.current_screenshot
+                    state["current_screenshots"] = []
+                else:
+                    state["current_screenshots"] = self.agent_state.current_screenshots
+                    state["current_screenshot"] = ""
                 
                 # Run the workflow
                 print("Running workflow...")
@@ -316,14 +323,19 @@ class ScreenSpyAgent:
     
     def set_cyclic_prompt(self, prompt):
         """
-        Set the cyclic prompt text.
+        Set the cyclic prompt text and enable cyclic mode if a prompt is provided.
         
         Args:
-            prompt (str): The new cyclic prompt text.
+            prompt (str): The cyclic prompt to use. If empty, cyclic mode will be disabled.
         """
-        if hasattr(self, 'cyclic_prompt_manager'):
+        if self.cyclic_prompt_manager:
             self.cyclic_prompt_manager.set_cyclic_prompt(prompt)
-        return prompt
+            
+            # Enable or disable cyclic mode based on whether a prompt is provided
+            self.agent_state.set_cyclic_mode(bool(prompt))
+            
+            return True
+        return False
     
     def get_cyclic_prompt(self):
         """
