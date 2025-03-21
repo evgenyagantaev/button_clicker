@@ -50,23 +50,23 @@
     - [x] c. Test the inactivity detection in Area 2 (gray background for 2 minutes)
     - [x] d. Test the cyclic behavior by mocking the conditions
 
-- [ ] 4. Update GUI tests to include new UI elements
+- [x] 4. Update GUI tests to include new UI elements
     ```
     tests/test_gui_integration.py  
     ```
-    - [ ] a. Test the new multi-line text input field
-    - [ ] b. Test saving and loading cyclic prompt from configuration
-    - [ ] c. Test integration with the agent system
+    - [x] a. Test the new multi-line text input field
+    - [x] b. Test saving and loading cyclic prompt from configuration
+    - [x] c. Test integration with the agent system
 
 ### Part 2: Implementing Code Changes
 
-- [ ] 1. Create a new CyclicPromptManager class
+- [x] 1. Create a new CyclicPromptManager class
     ```
     screen_spy_agent/cyclic_prompt_manager.py
     ```
-    - [ ] a. Implement storage for the cyclic prompt
-    - [ ] b. Add clipboard integration (pyperclip or equivalent)
-    - [ ] c. Create method for executing the start sequence actions
+    - [x] a. Implement storage for the cyclic prompt
+    - [x] b. Add clipboard integration (pyperclip or equivalent)
+    - [x] c. Create method for executing the start sequence actions
 
 - [ ] 2. Update the ScreenSpyAgent class
     ```

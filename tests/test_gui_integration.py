@@ -279,3 +279,117 @@ class TestGUIIntegration:
                 
                 # The key assertion: save_config should NOT be called when selecting a new area
                 mock_save_config.assert_not_called() 
+    
+    @patch('gui_integration.ScreenSpyGUI.save_config')
+    def test_cyclic_prompt_field_exists(self, mock_save_config, mock_tk):
+        """Test that the cyclic prompt multi-line text field is properly created in the GUI."""
+        # Mock the Text widget
+        with patch('gui_integration.tk.Text') as mock_text:
+            # Create the GUI
+            gui = ScreenSpyGUI(MagicMock())
+            
+            # Assert that a Text widget was created for the cyclic prompt
+            mock_text.assert_called()
+            
+            # Verify that the cyclic_prompt_text attribute exists
+            assert hasattr(gui, 'cyclic_prompt_text')
+    
+    @patch('gui_integration.ScreenSpyGUI.save_config')
+    def test_cyclic_prompt_save_load(self, mock_save_config, mock_tk, temp_config_file):
+        """Test that the cyclic prompt is saved to and loaded from the configuration."""
+        # Create a test config file with a cyclic prompt
+        test_config = {
+            "areas": [
+                [100, 100, 200, 200],
+                [300, 300, 400, 400],
+                [500, 500, 600, 600],
+                [700, 700, 800, 800]
+            ],
+            "interval": 15,
+            "model": "test-model",
+            "cyclic_prompt": "This is a test prompt\nWith multiple lines"
+        }
+        
+        with open(temp_config_file, 'w') as f:
+            json.dump(test_config, f)
+        
+        # Mock the Text widget
+        with patch('gui_integration.tk.Text') as mock_text:
+            # Setup mock Text instance
+            mock_text_instance = MagicMock()
+            mock_text.return_value = mock_text_instance
+            
+            # Create GUI with the temp config file
+            with patch('gui_integration.CONFIG_FILE', temp_config_file):
+                # Create the GUI
+                gui = ScreenSpyGUI(MagicMock())
+                
+                # Verify that the cyclic prompt was loaded
+                mock_text_instance.delete.assert_called_with('1.0', tk.END)
+                mock_text_instance.insert.assert_called_with('1.0', "This is a test prompt\nWith multiple lines")
+        
+        # Now test saving the cyclic prompt
+        with patch('gui_integration.tk.Text') as mock_text:
+            # Setup mock Text instance
+            mock_text_instance = MagicMock()
+            mock_text.return_value = mock_text_instance
+            mock_text_instance.get.return_value = "Updated prompt\nWith new content"
+            
+            # Create GUI with the temp config file
+            with patch('gui_integration.CONFIG_FILE', temp_config_file):
+                # Create the GUI
+                gui = ScreenSpyGUI(MagicMock())
+                
+                # Make gui.cyclic_prompt_text point to our mock
+                gui.cyclic_prompt_text = mock_text_instance
+                
+                # Call save_config
+                gui.save_config()
+                
+                # Check that mock_save_config was called with the correct arguments
+                expected_config = {
+                    "areas": gui.coords,
+                    "clicks": gui.click_lists,
+                    "interval": gui.interval_var.get(),
+                    "model": gui.model_var.get(),
+                    "cyclic_prompt": "Updated prompt\nWith new content"
+                }
+                mock_save_config.assert_called_with(expected_config)
+    
+    @patch('gui_integration.ScreenSpyGUI.save_config')
+    @patch('screen_spy_agent.cyclic_prompt_manager.CyclicPromptManager')
+    def test_cyclic_prompt_integration_with_agent(self, mock_cyclic_prompt_manager, mock_save_config, mock_tk):
+        """Test the integration of the cyclic prompt with the agent system."""
+        # Mock the Text widget
+        with patch('gui_integration.tk.Text') as mock_text:
+            # Setup mock Text instance
+            mock_text_instance = MagicMock()
+            mock_text.return_value = mock_text_instance
+            mock_text_instance.get.return_value = "Test prompt for integration"
+            
+            # Create the GUI
+            gui = ScreenSpyGUI(MagicMock())
+            
+            # Make gui.cyclic_prompt_text point to our mock
+            gui.cyclic_prompt_text = mock_text_instance
+            
+            # Mock the agent creation
+            with patch('gui_integration.ScreenSpyAgent') as mock_agent_class:
+                # Setup mock agent instance
+                mock_agent_instance = MagicMock()
+                mock_agent_class.return_value = mock_agent_instance
+                
+                # Setup mock cyclic prompt manager instance
+                mock_manager_instance = MagicMock()
+                mock_cyclic_prompt_manager.return_value = mock_manager_instance
+                
+                # Call toggle_agent to create the agent
+                with patch('threading.Thread') as mock_thread:
+                    gui.toggle_agent()
+                    
+                    # Verify that the agent was created with a CyclicPromptManager
+                    mock_agent_class.assert_called()
+                    
+                    # Verify that the prompt was set in the CyclicPromptManager
+                    mock_cyclic_prompt_manager.assert_called_once()
+                    mock_manager_instance.set_cyclic_prompt.assert_called_with("Test prompt for integration") 

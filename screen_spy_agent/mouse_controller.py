@@ -113,6 +113,41 @@ class MouseController:
             print(f"Error clicking at positions for area {area_index}: {e}")
             return False
     
+    def click(self, x, y):
+        """
+        Simulate a mouse click at the specified position.
+        
+        Args:
+            x: The x-coordinate to click at.
+            y: The y-coordinate to click at.
+            
+        Returns:
+            bool: True if click was successful, False otherwise.
+        """
+        try:
+            adjusted_y = y + self.vertical_shift
+            print(f"Clicking at position ({x}, {adjusted_y}) with vertical shift {self.vertical_shift}")
+            pyautogui.click(x=x, y=adjusted_y)
+            return True
+        except Exception as e:
+            print(f"Error clicking at position ({x}, {y}): {e}")
+            return False
+    
+    def paste_from_clipboard(self):
+        """
+        Simulate pasting content from the clipboard (Ctrl+V on Windows).
+        
+        Returns:
+            bool: True if paste was successful, False otherwise.
+        """
+        try:
+            print("Pasting from clipboard using Ctrl+V")
+            pyautogui.hotkey('ctrl', 'v')
+            return True
+        except Exception as e:
+            print(f"Error pasting from clipboard: {e}")
+            return False
+    
     @staticmethod
     def get_screen_size():
         """
