@@ -2,6 +2,7 @@
 AgentState module for maintaining the state of the agent.
 """
 
+import time
 
 class AgentState:
     """
@@ -18,6 +19,10 @@ class AgentState:
         history_limit: Maximum number of items to keep in history lists.
         num_areas: Number of screenshot areas to track (1 for single area mode, >1 for multiple areas mode).
         verticalShift: Vertical shift to apply to click coordinates based on detection in the first screenshot area.
+        last_activity_timestamp: Timestamp of the last activity detected in Area 2.
+        is_in_cyclic_mode: Flag indicating whether the agent is in cyclic workflow mode.
+        new_chat_detected: Flag indicating whether "new chat" was detected in Area 1.
+        area2_inactivity_start: Timestamp when inactivity in Area 2 was first detected.
     """
     
     def __init__(self, history_limit=100, num_areas=1):
@@ -33,6 +38,14 @@ class AgentState:
         self.history_limit = history_limit
         self.num_areas = num_areas
         self.verticalShift = 0  # Initial value is 0
+        
+        # Add timestamp tracking for inactivity detection
+        self.last_activity_timestamp = time.time()
+        self.area2_inactivity_start = None
+        
+        # Add state flags for the cyclic workflow
+        self.is_in_cyclic_mode = False
+        self.new_chat_detected = False
         
         if num_areas == 1:
             # Single area mode
@@ -95,6 +108,19 @@ class AgentState:
         if area_index == 0:
             # If "new chat" is detected in area 0, set verticalShift to -23, otherwise to 0
             self.verticalShift = -23 if detection_result else 0
+            
+            # Update the new_chat_detected flag for cyclic workflow
+            self.new_chat_detected = detection_result
+        
+        # Update last activity timestamp for Area 2
+        if area_index == 2:
+            if detection_result:
+                # Activity detected in Area 2
+                self.last_activity_timestamp = time.time()
+                self.area2_inactivity_start = None
+            elif self.area2_inactivity_start is None:
+                # Start tracking inactivity in Area 2
+                self.area2_inactivity_start = time.time()
         
         # Special handling for test_history_limit_with_multiple_areas
         if self.history_limit == 3 and self.num_areas == 4:
@@ -213,6 +239,31 @@ class AgentState:
         """
         self.verticalShift = value
     
+    def set_cyclic_mode(self, is_cyclic):
+        """
+        Set whether the agent is in cyclic workflow mode.
+        
+        Args:
+            is_cyclic: Whether the agent is in cyclic mode (True/False).
+        """
+        self.is_in_cyclic_mode = is_cyclic
+    
+    def check_area2_inactivity(self, threshold_seconds=120):
+        """
+        Check if Area 2 has been inactive for the specified threshold.
+        
+        Args:
+            threshold_seconds: The inactivity threshold in seconds.
+            
+        Returns:
+            bool: True if Area 2 has been inactive for the threshold period, False otherwise.
+        """
+        if self.area2_inactivity_start is None:
+            return False
+        
+        time_inactive = time.time() - self.area2_inactivity_start
+        return time_inactive >= threshold_seconds
+    
     def get_state(self):
         """
         Get the current state as a dictionary.
@@ -228,7 +279,11 @@ class AgentState:
                 "current_screenshot": self.current_screenshot,
                 "both_words_detected": self.both_words_detected,
                 "should_click": self.should_click,
-                "vertical_shift": self.verticalShift
+                "vertical_shift": self.verticalShift,
+                "is_in_cyclic_mode": self.is_in_cyclic_mode,
+                "new_chat_detected": self.new_chat_detected,
+                "last_activity_timestamp": self.last_activity_timestamp,
+                "area2_inactivity_start": self.area2_inactivity_start
             }
         else:
             # Multiple areas mode
@@ -242,7 +297,11 @@ class AgentState:
                     "current_screenshots": self.current_screenshots,
                     "detection_results": self.detection_results,
                     "should_click": self.should_click,
-                    "vertical_shift": self.verticalShift
+                    "vertical_shift": self.verticalShift,
+                    "is_in_cyclic_mode": self.is_in_cyclic_mode,
+                    "new_chat_detected": self.new_chat_detected,
+                    "last_activity_timestamp": self.last_activity_timestamp,
+                    "area2_inactivity_start": self.area2_inactivity_start
                 }
             
             return {
@@ -251,5 +310,9 @@ class AgentState:
                 "current_screenshots": self.current_screenshots,
                 "detection_results": self.detection_results,
                 "should_click": self.should_click,
-                "vertical_shift": self.verticalShift
+                "vertical_shift": self.verticalShift,
+                "is_in_cyclic_mode": self.is_in_cyclic_mode,
+                "new_chat_detected": self.new_chat_detected,
+                "last_activity_timestamp": self.last_activity_timestamp,
+                "area2_inactivity_start": self.area2_inactivity_start
             } 

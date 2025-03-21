@@ -68,22 +68,22 @@
     - [x] b. Add clipboard integration (pyperclip or equivalent)
     - [x] c. Create method for executing the start sequence actions
 
-- [ ] 2. Update the ScreenSpyAgent class
+- [x] 2. Update the ScreenSpyAgent class
     ```
     screen_spy_agent/screen_spy_agent.py
     ```
-    - [ ] a. Add a new field for the CyclicPromptManager
-    - [ ] b. Modify the agent_loop method to check for restart conditions
-    - [ ] c. Implement the start sequence with specific clicks and pauses
-    - [ ] d. Add timer functionality to track inactivity in Area 2
-    - [ ] e. Add logic to detect empty/gray screen in Area 2
+    - [x] a. Add a new field for the CyclicPromptManager
+    - [x] b. Modify the agent_loop method to check for restart conditions
+    - [x] c. Implement the start sequence with specific clicks and pauses
+    - [x] d. Add timer functionality to track inactivity in Area 2
+    - [x] e. Add logic to detect empty/gray screen in Area 2
 
-- [ ] 3. Modify the AgentState class to include new state tracking
+- [x] 3. Modify the AgentState class to include new state tracking
     ```
     screen_spy_agent/agent_state.py
     ```
-    - [ ] a. Add timestamp tracking for inactivity detection
-    - [ ] b. Add state flags for the cyclic workflow
+    - [x] a. Add timestamp tracking for inactivity detection
+    - [x] b. Add state flags for the cyclic workflow
 
 - [ ] 4. Update the GUI Integration
     ```

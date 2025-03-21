@@ -15,6 +15,7 @@ from screen_spy_agent.image_analyzer import ImageAnalyzer
 from screen_spy_agent.mouse_controller import MouseController
 from screen_spy_agent.agent_state import AgentState
 from screen_spy_agent.agent_node import AgentNode
+from screen_spy_agent.cyclic_prompt_manager import CyclicPromptManager
 
 # Thread-local storage for sharing components with nodes
 thread_local = threading.local()
@@ -44,9 +45,12 @@ class ScreenSpyAgent:
         workflow: LangGraph workflow.
         running: Whether the agent is running.
         agent_thread: Thread for the agent loop.
+        cyclic_prompt_manager: CyclicPromptManager instance.
+        last_activity_time: Timestamp of the last activity detected in Area 2.
+        inactivity_threshold: Time in seconds after which to consider Area 2 inactive.
     """
     
-    def __init__(self, screenshot_taker, image_analyzer, mouse_controller, interval=15):
+    def __init__(self, screenshot_taker, image_analyzer, mouse_controller, interval=15, cyclic_prompt=None):
         """
         Initialize the agent with the given components.
         
@@ -55,6 +59,7 @@ class ScreenSpyAgent:
             image_analyzer: ImageAnalyzer instance.
             mouse_controller: MouseController instance.
             interval: Interval in seconds between screenshots.
+            cyclic_prompt: Optional initial cyclic prompt text.
         """
         # Check if screenshot_taker is a list (multiple areas) or a single instance
         if isinstance(screenshot_taker, list):
@@ -70,6 +75,13 @@ class ScreenSpyAgent:
         self.agent_state = AgentState(num_areas=self.num_areas)
         self.running = False
         self.agent_thread = None
+        
+        # Initialize the cyclic prompt manager
+        self.cyclic_prompt_manager = CyclicPromptManager(cyclic_prompt or "")
+        
+        # Initialize variables for tracking inactivity in Area 2
+        self.last_activity_time = time.time()
+        self.inactivity_threshold = 120  # 2 minutes in seconds
         
         # Define the text phrases to detect for each area
         self.detection_phrases = [
@@ -110,6 +122,49 @@ class ScreenSpyAgent:
         # Compile the workflow
         self.workflow = builder.compile()
     
+    def execute_start_sequence(self):
+        """
+        Execute the start sequence for the cyclic prompt workflow.
+        
+        This includes:
+        1. Clicking at position [1818, 46] (new chat)
+        2. Pausing for 2 seconds
+        3. Clicking at position [1419, 108] (focus prompt field)
+        4. Pausing for 2 seconds
+        5. Copying the cyclic prompt to clipboard
+        6. Pasting to the focused field
+        7. Pausing for 2 seconds
+        8. Clicking at position [1874, 141] (send button)
+        """
+        print("Executing start sequence for new prompt cycle...")
+        self.cyclic_prompt_manager.execute_start_sequence(self.mouse_controller)
+    
+    def is_area2_inactive(self, screenshot_path):
+        """
+        Check if Area 2 has been inactive (gray screen) for the inactivity threshold period.
+        
+        Args:
+            screenshot_path: Path to the screenshot of Area 2.
+            
+        Returns:
+            bool: True if Area 2 has been inactive for the threshold period, False otherwise.
+        """
+        # Check if the screenshot shows an empty/gray screen
+        is_empty = self.image_analyzer.detect_empty_screen(screenshot_path)
+        
+        current_time = time.time()
+        
+        if not is_empty:
+            # If screen is not empty, update the last activity time
+            self.last_activity_time = current_time
+            return False
+        
+        # Calculate time since last activity
+        time_since_activity = current_time - self.last_activity_time
+        
+        # If inactive for more than the threshold, return True
+        return time_since_activity >= self.inactivity_threshold
+    
     def agent_loop(self):
         """The agent's main loop."""
         print("Agent started")
@@ -117,6 +172,9 @@ class ScreenSpyAgent:
         # Make sure thread-local storage has the components
         thread_local.image_analyzer = self.image_analyzer
         thread_local.mouse_controller = self.mouse_controller
+        
+        # Execute the start sequence at the beginning
+        self.execute_start_sequence()
         
         while self.running:
             try:
@@ -126,6 +184,8 @@ class ScreenSpyAgent:
                 
                 # Initialize verticalShift to 0
                 vertical_shift = 0
+                
+                restart_cycle = False
                 
                 for i, screenshot_taker in enumerate(self.screenshot_takers):
                     # Initialize variables with original coordinates first
@@ -174,6 +234,18 @@ class ScreenSpyAgent:
                     detection_results.append(detection_result)
                     print(f"Area {i} detection result: {detection_result}")
                     
+                    # Check restart conditions
+                    if i == 0 and detection_result:
+                        # "new chat" detected in Area 1
+                        print("\"new chat\" detected in Area 1. Restarting cycle...")
+                        restart_cycle = True
+                    
+                    if i == 2:
+                        # Check for inactivity in Area 2
+                        if self.is_area2_inactive(screenshot_path):
+                            print("Area 2 has been inactive for 2 minutes. Restarting cycle...")
+                            restart_cycle = True
+                    
                     # For area 0, update the vertical shift based on the detection result
                     if i == 0:
                         # If "new chat" is detected in area 0, set verticalShift to -23, otherwise to 0
@@ -186,6 +258,11 @@ class ScreenSpyAgent:
                     if i > 0 and detection_result:
                         print(f"Detected the phrase \"{self.detection_phrases[i]}\" in area {i}, executing clicks...")
                         self.mouse_controller.click_at_position(i)
+                
+                # If a restart condition was met, execute the start sequence
+                if restart_cycle:
+                    self.execute_start_sequence()
+                    continue  # Skip the rest of the loop and start a new iteration
                 
                 # Update the agent state with the vertical shift
                 state_dict = self.agent_state.get_state()
@@ -218,4 +295,22 @@ class ScreenSpyAgent:
             self.running = False
             if self.agent_thread:
                 self.agent_thread.join(timeout=10)
-            print("Agent stopped") 
+            print("Agent stopped")
+    
+    def set_cyclic_prompt(self, prompt):
+        """
+        Set the cyclic prompt text.
+        
+        Args:
+            prompt (str): The new cyclic prompt text.
+        """
+        self.cyclic_prompt_manager.set_cyclic_prompt(prompt)
+    
+    def get_cyclic_prompt(self):
+        """
+        Get the current cyclic prompt text.
+        
+        Returns:
+            str: The current cyclic prompt text.
+        """
+        return self.cyclic_prompt_manager.get_cyclic_prompt() 

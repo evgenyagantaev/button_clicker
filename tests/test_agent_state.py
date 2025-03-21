@@ -1,5 +1,6 @@
 import pytest
 from screen_spy_agent.agent_state import AgentState
+import time
 
 
 class TestAgentState:
@@ -12,6 +13,10 @@ class TestAgentState:
         assert state.action_history == []
         assert state.current_screenshot == ""
         assert state.both_words_detected is False
+        assert state.is_in_cyclic_mode is False
+        assert state.new_chat_detected is False
+        assert state.last_activity_timestamp is not None
+        assert state.area2_inactivity_start is None
 
     def test_init_with_multiple_areas(self):
         """Test initialization of AgentState with support for multiple areas."""
@@ -22,6 +27,10 @@ class TestAgentState:
         assert state.detection_results == [False, False, False, False]
         assert state.should_click is False
         assert state.num_areas == 4
+        assert state.is_in_cyclic_mode is False
+        assert state.new_chat_detected is False
+        assert state.last_activity_timestamp is not None
+        assert state.area2_inactivity_start is None
 
     def test_update_detection(self):
         """Test updating detection state."""
@@ -53,6 +62,7 @@ class TestAgentState:
         assert len(state.detection_history) == 1
         assert state.detection_history[0] == [False, False, False, False]
         assert state.should_click is False
+        assert state.new_chat_detected is False
         
         # Test with some True detections
         state.update_detection_for_area(1, True)
@@ -64,6 +74,17 @@ class TestAgentState:
         
         # Test that should_click is True if any area has a detection
         assert state.should_click is True
+        
+        # Test detection in area 0 sets new_chat_detected
+        state.update_detection_for_area(0, True)
+        assert state.new_chat_detected is True
+        
+        # Test detection in area 2 updates last_activity_timestamp
+        old_timestamp = state.last_activity_timestamp
+        time.sleep(0.01)  # Small delay to ensure timestamp changes
+        state.update_detection_for_area(2, True)
+        assert state.last_activity_timestamp > old_timestamp
+        assert state.area2_inactivity_start is None
 
     def test_update_action(self):
         """Test updating action state."""
@@ -114,6 +135,7 @@ class TestAgentState:
         state.update_detection(True)
         state.update_action(True)
         state.set_current_screenshot("/path/to/screenshot.jpg")
+        state.set_cyclic_mode(True)
         
         # Get the state
         state_dict = state.get_state()
@@ -123,6 +145,10 @@ class TestAgentState:
         assert state_dict["action_history"] == [True]
         assert state_dict["current_screenshot"] == "/path/to/screenshot.jpg"
         assert state_dict["both_words_detected"] is True
+        assert state_dict["is_in_cyclic_mode"] is True
+        assert state_dict["new_chat_detected"] is False
+        assert "last_activity_timestamp" in state_dict
+        assert "area2_inactivity_start" in state_dict
 
     def test_get_state_with_multiple_areas(self):
         """Test getting the full state as a dictionary with multiple areas."""
@@ -135,6 +161,7 @@ class TestAgentState:
         state.update_detection_for_area(3, True)
         
         state.update_action(True)
+        state.set_cyclic_mode(True)
         
         for i in range(4):
             path = f"/path/to/screenshot_{i}.jpg"
@@ -154,6 +181,10 @@ class TestAgentState:
         ]
         assert state_dict["detection_results"] == [False, True, False, True]
         assert state_dict["should_click"] is True
+        assert state_dict["is_in_cyclic_mode"] is True
+        assert state_dict["new_chat_detected"] is False
+        assert "last_activity_timestamp" in state_dict
+        assert "area2_inactivity_start" in state_dict
 
     def test_history_limit(self):
         """Test that history lists are limited to the specified size."""
@@ -199,4 +230,46 @@ class TestAgentState:
         assert state.detection_history == expected_history
         
         # The last 3 action items should be [True, False, True] (for i=2,3,4)
-        assert state.action_history == [True, False, True] 
+        assert state.action_history == [True, False, True]
+        
+    def test_set_cyclic_mode(self):
+        """Test setting cyclic mode flag."""
+        state = AgentState()
+        
+        # Default value should be False
+        assert state.is_in_cyclic_mode is False
+        
+        # Test setting to True
+        state.set_cyclic_mode(True)
+        assert state.is_in_cyclic_mode is True
+        
+        # Test setting back to False
+        state.set_cyclic_mode(False)
+        assert state.is_in_cyclic_mode is False
+    
+    def test_area2_inactivity_tracking(self):
+        """Test tracking inactivity in Area 2."""
+        state = AgentState(num_areas=3)
+        
+        # Initially, there should be no inactivity
+        assert state.area2_inactivity_start is None
+        assert state.check_area2_inactivity() is False
+        
+        # Simulate no activity in Area 2
+        state.update_detection_for_area(2, False)
+        
+        # Inactivity should now be tracked
+        assert state.area2_inactivity_start is not None
+        
+        # Inactivity period hasn't exceeded threshold yet
+        assert state.check_area2_inactivity() is False
+        
+        # Test with a very short threshold
+        assert state.check_area2_inactivity(threshold_seconds=0.001) is True
+        
+        # Simulate activity in Area 2
+        state.update_detection_for_area(2, True)
+        
+        # Inactivity tracking should be reset
+        assert state.area2_inactivity_start is None
+        assert state.check_area2_inactivity() is False 
