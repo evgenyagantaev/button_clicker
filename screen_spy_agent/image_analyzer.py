@@ -229,7 +229,8 @@ class ImageAnalyzer:
             print(f"Channel std devs: R={r_std:.2f}, G={g_std:.2f}, B={b_std:.2f}")
             print(f"Channel means: R={r_mean:.2f}, G={g_mean:.2f}, B={b_mean:.2f}")
             
-            return is_uniform and is_gray
+            # Make sure to convert numpy boolean types to Python booleans
+            return bool(is_uniform and is_gray)
             
         except Exception as e:
             print(f"Error in is_gray_background: {e}")

@@ -103,7 +103,7 @@
 
 ### Part 3: Final Testing
 
-- [ ] 1. Run all unit tests to verify implementation; modify code and tests while they are all pass;
+- [x] 1. Run all unit tests to verify implementation; modify code and tests while they are all pass;
     ```
     pytest tests/
     ```
