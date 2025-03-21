@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 screen_spy_agent/__pycache__/
 screen_spy_agent/venv/
+macrorecorder/__pycache__/
