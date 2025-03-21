@@ -1,4 +1,3 @@
-
 ## Task specification
 
 Нужно добавить следующий функционал:
@@ -29,18 +28,18 @@
 
 ### Part 1: Writing/Modifying Unit Tests
 
-- [ ] 1. Run all existing unit tests to check current system functionality
+- [x] 1. Run all existing unit tests to check current system functionality
     ```
     pytest tests/
     ```
 
-- [ ] 2. Create a new test file for CyclicPromptManager class
+- [x] 2. Create a new test file for CyclicPromptManager class
     ```
     tests/test_cyclic_prompt_manager.py
     ```
-    - [ ] a. Test initialization with default values
-    - [ ] b. Test setting and getting the cyclic prompt
-    - [ ] c. Test clipboard operations (copy/paste)
+    - [x] a. Test initialization with default values
+    - [x] b. Test setting and getting the cyclic prompt
+    - [x] c. Test clipboard operations (copy/paste)
 
 - [ ] 3. Modify ScreenSpyAgent tests to include new functionality
     ```

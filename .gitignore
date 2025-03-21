@@ -5,3 +5,4 @@ __pycache__/
 screen_spy_agent/__pycache__/
 screen_spy_agent/venv/
 macrorecorder/__pycache__/
+tests/__pycache__/
