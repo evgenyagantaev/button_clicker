@@ -386,4 +386,241 @@ class TestScreenSpyAgent:
         for i, (taker, screenshot) in enumerate(zip(mock_screenshot_takers, mock_screenshots)):
             assert taker.capture_screenshot.call_count == 1
             assert taker.save_screenshot.call_count == 1
-            assert taker.save_screenshot.call_args == call(screenshot) 
+            assert taker.save_screenshot.call_args == call(screenshot)
+
+    @patch('screen_spy_agent.screen_spy_agent.CyclicPromptManager')
+    def test_init_with_cyclic_prompt_manager(self, mock_cyclic_prompt_manager):
+        """Test that a CyclicPromptManager is initialized when creating a ScreenSpyAgent."""
+        # Create mock components
+        mock_screenshot_taker = MagicMock()
+        mock_image_analyzer = MagicMock()
+        mock_mouse_controller = MagicMock()
+        
+        # Setup mock cyclic prompt manager
+        mock_manager_instance = MagicMock()
+        mock_cyclic_prompt_manager.return_value = mock_manager_instance
+        
+        # Create agent
+        agent = ScreenSpyAgent(
+            screenshot_taker=mock_screenshot_taker,
+            image_analyzer=mock_image_analyzer,
+            mouse_controller=mock_mouse_controller,
+            interval=15
+        )
+        
+        # Verify
+        assert agent.cyclic_prompt_manager is not None
+        assert agent.cyclic_prompt_manager == mock_manager_instance
+    
+    @patch('screen_spy_agent.screen_spy_agent.time.sleep')
+    def test_execute_start_sequence(self, mock_sleep):
+        """Test the execute_start_sequence method that should perform clicks and clipboard operations."""
+        # Create mock components
+        mock_screenshot_taker = MagicMock()
+        mock_image_analyzer = MagicMock()
+        mock_mouse_controller = MagicMock()
+        mock_cyclic_prompt_manager = MagicMock()
+        
+        # Create agent
+        agent = ScreenSpyAgent(
+            screenshot_taker=mock_screenshot_taker,
+            image_analyzer=mock_image_analyzer,
+            mouse_controller=mock_mouse_controller,
+            interval=15
+        )
+        
+        # Replace the agent's cyclic prompt manager with our mock
+        agent.cyclic_prompt_manager = mock_cyclic_prompt_manager
+        
+        # Call the method
+        agent.execute_start_sequence()
+        
+        # Verify expected behavior
+        assert mock_mouse_controller.click_at_coordinates.call_count == 3
+        mock_mouse_controller.click_at_coordinates.assert_any_call(1818, 46)  # Start new chat
+        mock_mouse_controller.click_at_coordinates.assert_any_call(1419, 108)  # Focus on prompt field
+        mock_mouse_controller.click_at_coordinates.assert_any_call(1874, 141)  # Send button
+        
+        assert mock_sleep.call_count == 3
+        assert mock_cyclic_prompt_manager.copy_to_clipboard.call_count == 1
+        assert mock_mouse_controller.paste_from_clipboard.call_count == 1
+    
+    @patch('screen_spy_agent.screen_spy_agent.time.sleep')
+    def test_detect_new_chat_condition(self, mock_sleep):
+        """Test that the agent detects 'new chat' in Area 1 and restarts the sequence."""
+        # Create mock components
+        mock_screenshot_takers = [MagicMock() for _ in range(4)]
+        mock_image_analyzer = MagicMock()
+        mock_mouse_controller = MagicMock()
+        
+        # Create agent
+        agent = ScreenSpyAgent(
+            screenshot_taker=mock_screenshot_takers,
+            image_analyzer=mock_image_analyzer,
+            mouse_controller=mock_mouse_controller,
+            interval=15
+        )
+        
+        # Set up mock to make the agent stop after detecting "new chat"
+        def stop_after_detect(*args, **kwargs):
+            agent.running = False
+            return None
+        
+        mock_sleep.side_effect = stop_after_detect
+        
+        # Mock the execute_start_sequence method
+        agent.execute_start_sequence = MagicMock()
+        
+        # Set up mock image analyzer to detect "new chat" in Area 1
+        def mock_detect_text(screenshot_path, text_to_detect):
+            if text_to_detect == "new chat" and screenshot_path.endswith("screenshot_0.jpg"):
+                return True
+            return False
+        
+        mock_image_analyzer.detect_text_in_image.side_effect = mock_detect_text
+        
+        # Set up mock screenshot takers
+        mock_screenshots = [MagicMock() for _ in range(4)]
+        for i, (taker, screenshot) in enumerate(zip(mock_screenshot_takers, mock_screenshots)):
+            taker.capture_screenshot.return_value = screenshot
+            taker.save_screenshot.return_value = f"/path/to/screenshot_{i}.jpg"
+        
+        # Set running to True
+        agent.running = True
+        
+        # Call agent_loop directly
+        agent.agent_loop()
+        
+        # Verify the start sequence was executed when "new chat" was detected
+        agent.execute_start_sequence.assert_called_once()
+    
+    @patch('screen_spy_agent.screen_spy_agent.time.sleep')
+    @patch('screen_spy_agent.screen_spy_agent.time.time')
+    def test_detect_inactivity_in_area2(self, mock_time, mock_sleep):
+        """Test that the agent detects inactivity in Area 2 (gray screen) for 2 minutes and restarts."""
+        # Create mock components
+        mock_screenshot_takers = [MagicMock() for _ in range(4)]
+        mock_image_analyzer = MagicMock()
+        mock_mouse_controller = MagicMock()
+        
+        # Create agent
+        agent = ScreenSpyAgent(
+            screenshot_taker=mock_screenshot_takers,
+            image_analyzer=mock_image_analyzer,
+            mouse_controller=mock_mouse_controller,
+            interval=15
+        )
+        
+        # Mock the execute_start_sequence method
+        agent.execute_start_sequence = MagicMock()
+        
+        # Set up time mock to simulate 2 minutes passing
+        mock_time.side_effect = [
+            1000,  # First call - starting time
+            1060,  # 1 minute later
+            1180   # 3 minutes later, exceeding the 2-minute threshold
+        ]
+        
+        # Set up image analyzer to detect empty/gray screen in Area 2
+        def mock_detect_text(screenshot_path, text_to_detect):
+            # Return False for all text detection
+            return False
+        
+        def mock_detect_empty_screen(screenshot_path):
+            # Return True for Area 2 to indicate empty/gray screen
+            if screenshot_path.endswith("screenshot_2.jpg"):
+                return True
+            return False
+        
+        mock_image_analyzer.detect_text_in_image.side_effect = mock_detect_text
+        mock_image_analyzer.detect_empty_screen.side_effect = mock_detect_empty_screen
+        
+        # Set up mock screenshot takers
+        mock_screenshots = [MagicMock() for _ in range(4)]
+        for i, (taker, screenshot) in enumerate(zip(mock_screenshot_takers, mock_screenshots)):
+            taker.capture_screenshot.return_value = screenshot
+            taker.save_screenshot.return_value = f"/path/to/screenshot_{i}.jpg"
+        
+        # Make the agent stop after one iteration
+        def stop_after_one_iteration(*args, **kwargs):
+            agent.running = False
+            return None
+        
+        mock_sleep.side_effect = stop_after_one_iteration
+        
+        # Set running to True
+        agent.running = True
+        
+        # Call agent_loop directly
+        agent.agent_loop()
+        
+        # Verify the start sequence was executed when inactivity was detected
+        agent.execute_start_sequence.assert_called_once()
+    
+    @patch('screen_spy_agent.screen_spy_agent.time.sleep')
+    def test_cyclic_behavior(self, mock_sleep):
+        """Test the cyclic behavior of the agent when conditions are met."""
+        # Create mock components
+        mock_screenshot_takers = [MagicMock() for _ in range(4)]
+        mock_image_analyzer = MagicMock()
+        mock_mouse_controller = MagicMock()
+        
+        # Create agent
+        agent = ScreenSpyAgent(
+            screenshot_taker=mock_screenshot_takers,
+            image_analyzer=mock_image_analyzer,
+            mouse_controller=mock_mouse_controller,
+            interval=15
+        )
+        
+        # Mock the execute_start_sequence method
+        agent.execute_start_sequence = MagicMock()
+        
+        # Set up a scenario where we run through 3 cycles:
+        # 1. Normal operation, no restart
+        # 2. Detect "new chat" in Area 1 - trigger restart
+        # 3. Detect inactivity in Area 2 - trigger restart
+        
+        # Side effect for sleep function to make the agent stop after three cycles
+        agent._cycle_count = 0
+        def simulate_cycles(*args, **kwargs):
+            agent._cycle_count += 1
+            if agent._cycle_count >= 3:
+                agent.running = False
+            return None
+        
+        mock_sleep.side_effect = simulate_cycles
+        
+        # Side effect for detect_text_in_image to simulate different scenarios
+        def mock_detect_text(screenshot_path, text_to_detect):
+            if agent._cycle_count == 2 and text_to_detect == "new chat" and screenshot_path.endswith("screenshot_0.jpg"):
+                return True  # Detect "new chat" in Area 1 during the second cycle
+            return False
+        
+        mock_image_analyzer.detect_text_in_image.side_effect = mock_detect_text
+        
+        # Side effect for detect_empty_screen to simulate different scenarios
+        def mock_detect_empty_screen(screenshot_path):
+            if agent._cycle_count == 3 and screenshot_path.endswith("screenshot_2.jpg"):
+                return True  # Detect empty screen in Area 2 during the third cycle
+            return False
+        
+        mock_image_analyzer.detect_empty_screen.side_effect = mock_detect_empty_screen
+        
+        # Set up mock screenshot takers
+        mock_screenshots = [MagicMock() for _ in range(4)]
+        for i, (taker, screenshot) in enumerate(zip(mock_screenshot_takers, mock_screenshots)):
+            taker.capture_screenshot.return_value = screenshot
+            taker.save_screenshot.return_value = f"/path/to/screenshot_{i}.jpg"
+        
+        # Set running to True
+        agent.running = True
+        
+        # Call agent_loop directly
+        agent.agent_loop()
+        
+        # Verify the start sequence was executed twice (once for each restart condition)
+        assert agent.execute_start_sequence.call_count == 2
+        
+        # Verify sleep was called
+        assert mock_sleep.call_count == 3 

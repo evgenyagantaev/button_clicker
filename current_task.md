@@ -41,14 +41,14 @@
     - [x] b. Test setting and getting the cyclic prompt
     - [x] c. Test clipboard operations (copy/paste)
 
-- [ ] 3. Modify ScreenSpyAgent tests to include new functionality
+- [x] 3. Modify ScreenSpyAgent tests to include new functionality
     ```
     tests/test_screen_spy_agent.py
     ```
-    - [ ] a. Create tests for the new start sequence method
-    - [ ] b. Test the condition monitoring logic (detect "new chat" in Area 1)
-    - [ ] c. Test the inactivity detection in Area 2 (gray background for 2 minutes)
-    - [ ] d. Test the cyclic behavior by mocking the conditions
+    - [x] a. Create tests for the new start sequence method
+    - [x] b. Test the condition monitoring logic (detect "new chat" in Area 1)
+    - [x] c. Test the inactivity detection in Area 2 (gray background for 2 minutes)
+    - [x] d. Test the cyclic behavior by mocking the conditions
 
 - [ ] 4. Update GUI tests to include new UI elements
     ```
