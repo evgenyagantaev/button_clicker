@@ -1,0 +1,33 @@
+# Sample Cyclic Prompts for Testing
+
+## Basic Test Prompt
+This is a test of the cyclic prompt feature.
+Please respond with "Test complete" when you receive this message.
+After you respond, I will start a new chat automatically.
+
+## Multi-Line Test Prompt
+This is a multi-line test prompt.
+It has several lines of text.
+Each line should be properly copied and pasted.
+Please acknowledge receipt of all lines.
+
+## Complex Test Prompt with Special Characters
+Testing special characters: !@#$%^&*()_+-=[]{}|;':",./<>?
+Testing emoji: 😀 🚀 🎉 👍
+Testing multilingual text: English, Русский, 中文, Español
+All these characters should be properly handled.
+
+## Long Test Prompt
+This is a very long prompt designed to test how the system handles large amounts of text. The system should be able to correctly copy and paste the entire content without truncation or errors. When testing with long text, it's important to verify that all content is transferred correctly and that the system remains responsive.
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+## Task-Specific Test Prompt
+I need you to help me with a specific task. Please follow these steps:
+1. Analyze the provided information
+2. Generate a summary of key points
+3. Highlight any important findings
+4. Suggest next steps
+
+After completing these tasks, respond with "Analysis complete."
+This will test the agent's ability to handle task-oriented prompts. 
