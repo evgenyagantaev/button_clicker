@@ -94,5 +94,6 @@ class ScreenshotTaker:
         Returns:
             str: The filename for the screenshot.
         """
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        return os.path.abspath(f"screenshot_{timestamp}.jpg") 
+        # timestamp = time.strftime("%Y%m%d_%H%M%S")
+        # return os.path.abspath(f"screenshot_{timestamp}.jpg") 
+        return os.path.abspath("current_screenshot.jpg")
