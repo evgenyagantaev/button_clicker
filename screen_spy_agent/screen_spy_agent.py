@@ -473,6 +473,16 @@ class ScreenSpyAgent:
             # The thread will terminate itself at the next checkpoint
             print("Agent stopped")
     
+    def create_stop_trigger(self):
+        """Create a stop trigger file that will stop the agent on next check."""
+        stop_file_path = os.path.expanduser("~/CursorAgent/screen_spy_agent/stop_screen_spy_agent")
+        os.makedirs(os.path.dirname(stop_file_path), exist_ok=True)
+        with open(stop_file_path, "w") as f:
+            f.write("stop")
+        print(f"Created stop trigger file at: {stop_file_path}")
+        print("Agent will stop at next check")
+        return stop_file_path
+    
     def set_cyclic_prompt(self, prompt):
         """
         Set the cyclic prompt text and enable cyclic mode if a prompt is provided.
