@@ -375,7 +375,8 @@ class ScreenSpyGUI:
         
         # Create a multiline text input
         self.cyclic_prompt_text = tk.Text(cyclic_prompt_frame, height=8, wrap=tk.WORD, 
-                                     background="#1a1a1a", foreground="#d4d4d4")
+                                     background="#1a1a1a", foreground="#d4d4d4",
+                                     insertbackground="#ffffff", insertwidth=2)
         self.cyclic_prompt_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         # Set initial value if saved
