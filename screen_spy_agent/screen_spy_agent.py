@@ -153,6 +153,20 @@ class ScreenSpyAgent:
         
         print("=== START SEQUENCE BEGIN ===")
         print("Executing start sequence for new prompt cycle...")
+
+        # Check if we should continue
+        # Check if the stop file exists
+        stop_file_path = os.path.expanduser("~/CursorAgent/screen_spy_agent/stop_screen_spy_agent")
+        if os.path.exists(stop_file_path):
+            print(f"Stop file exists at: {stop_file_path}")
+            # Stop the agent as if the stop button was pressed
+            print("Stopping agent...")
+            self.stop_agent()
+            # Remove the stop file
+            os.remove(stop_file_path)
+            # Set the agent to None to indicate it's fully stopped
+            # Return a special value that can be used to update the UI
+            return "agent_stopped"
         
         try:
             # Check if we should continue
@@ -212,6 +226,9 @@ class ScreenSpyAgent:
             print("=== START SEQUENCE END ===")
             # Always yield control back to the main thread briefly
             time.sleep(0.1)
+            
+            # Reset the last activity time for Area 2
+            self.last_activity_time = time.time()
     
     def is_area2_inactive(self, screenshot_path):
         """
@@ -270,7 +287,10 @@ class ScreenSpyAgent:
         if not self.running:
             return
         print("Executing initial start sequence on agent startup...")
-        self.execute_start_sequence()
+        result = self.execute_start_sequence()
+        if result == "agent_stopped":
+            print("Agent was stopped by external file trigger")
+            return
         
         # Reset the last activity time after initial start sequence
         self.last_activity_time = time.time()
@@ -345,7 +365,10 @@ class ScreenSpyAgent:
                         
                         # Execute start sequence immediately for this condition
                         print("Executing start sequence due to 'new chat' detection in Area 0")
-                        self.execute_start_sequence()
+                        result = self.execute_start_sequence()
+                        if result == "agent_stopped":
+                            print("Agent was stopped by external file trigger")
+                            return
                         
                         # Reset the last activity time for Area 2
                         self.last_activity_time = time.time()
@@ -364,9 +387,12 @@ class ScreenSpyAgent:
                                 
                                 # Execute start sequence for this condition
                                 print("Executing start sequence due to Area 2 inactivity")
-                                self.execute_start_sequence()
+                                result = self.execute_start_sequence()
+                                if result == "agent_stopped":
+                                    print("Agent was stopped by external file trigger")
+                                    return
                                 
-                                # Reset the last activity time
+                                # Reset the last activity time for Area 2
                                 self.last_activity_time = time.time()
                                 
                                 # No need to continue with other areas
@@ -392,7 +418,10 @@ class ScreenSpyAgent:
                 if restart_cycle and not any(detection_results[:1]):  # If we didn't already restart for Area 0
                     # Execute the start sequence only if it wasn't executed in the loop
                     print("Final restart condition met - executing start sequence")
-                    self.execute_start_sequence()
+                    result = self.execute_start_sequence()
+                    if result == "agent_stopped":
+                        print("Agent was stopped by external file trigger")
+                        return
                     
                     # Reset the last activity time for Area 2
                     self.last_activity_time = time.time()

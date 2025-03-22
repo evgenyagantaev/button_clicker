@@ -153,10 +153,8 @@ class ScreenSpyGUI:
         # Take initial screenshot
         self.take_screenshot()
         
-        # Start screenshot thread for live preview
-        self.screenshot_thread = threading.Thread(target=self.screenshot_loop)
-        self.screenshot_thread.daemon = True
-        self.screenshot_thread.start()
+        # Start screenshot loop using Tkinter's scheduling
+        self.root.after(1000, self.screenshot_loop)
         
         # Setup window close event
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -630,10 +628,28 @@ class ScreenSpyGUI:
             self.status_var.set(f"Error taking screenshot: {str(e)}")
     
     def screenshot_loop(self):
-        """Thread function to update the screenshot at regular intervals"""
-        while self.running:
-            self.take_screenshot()
-            time.sleep(3)  # Update every 3 seconds for the preview
+        """Periodically take a screenshot for the UI preview"""
+        if not self.running:
+            return
+            
+        # Take a screenshot
+        self.take_screenshot()
+        
+        # Check agent status
+        self.check_agent_status()
+        
+        # Schedule the next screenshot
+        self.root.after(1000, self.screenshot_loop)
+    
+    def check_agent_status(self):
+        """Check if the agent is still running and update the UI accordingly"""
+        if self.agent is not None:
+            # Check if agent was stopped (running flag is False)
+            if not self.agent.running:
+                print("Agent was stopped externally, updating UI...")
+                self.agent = None
+                self.agent_button.configure(text="Start Agent")
+                self.agent_status_var.set("Agent: Stopped")
     
     def toggle_agent(self):
         """Start or stop the Screen Spy Agent"""
