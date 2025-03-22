@@ -144,11 +144,9 @@ class ScreenSpyAgent:
         This includes:
         1. Clicking at position [1818, 46] (new chat)
         2. Pausing for 2 seconds
-        3. Clicking at position [1419, 108] (focus prompt field)
+        3. Typing the cyclic prompt text
         4. Pausing for 2 seconds
-        5. Typing the cyclic prompt text
-        6. Pausing for 2 seconds
-        7. Pressing Enter to send the message
+        5. Pressing Enter to send the message
         """
         import time
         import traceback
@@ -157,17 +155,22 @@ class ScreenSpyAgent:
         print("Executing start sequence for new prompt cycle...")
         
         try:
+            # Check if we should continue
+            if not self.running:
+                print("Start sequence cancelled - agent stopped")
+                return
+                
             # Click to start new chat
             print("Step 1: Clicking 'New Chat' button at coordinates [1818, 46]")
             self.mouse_controller.click_at_coordinates(1818, 46)
             print("✓ Click at 'New Chat' succeeded")
-            time.sleep(2)
             
-            # # Click to focus prompt input field
-            # print("Step 2: Clicking prompt input field at coordinates [1419, 108]")
-            # self.mouse_controller.click_at_coordinates(1419, 108)
-            # print("✓ Click at prompt field succeeded")
-            # time.sleep(2)
+            # Short sleep with termination check
+            for _ in range(10):  # 1 second in smaller chunks
+                if not self.running:
+                    print("Start sequence cancelled - agent stopped")
+                    return
+                time.sleep(0.1)
             
             # Get the prompt text
             print("Step 3: Preparing prompt text")
@@ -175,6 +178,9 @@ class ScreenSpyAgent:
             print(f"Current prompt text: '{prompt_text[:50]}{'...' if len(prompt_text) > 50 else ''}'")
             
             # Input text via clipboard
+            if not self.running:
+                print("Start sequence cancelled - agent stopped")
+                return
             print("Step 4: Inputting text via clipboard")
             clipboard_success = self.mouse_controller.copy_paste_text(prompt_text)
             
@@ -183,10 +189,17 @@ class ScreenSpyAgent:
             else:
                 print("⚠️ Text input via clipboard failed")
             
-            # Extra delay after typing to ensure content is properly inserted
-            time.sleep(2)
+            # Extra delay after typing with termination check
+            for _ in range(10):  # 1 second in smaller chunks
+                if not self.running:
+                    print("Start sequence cancelled - agent stopped")
+                    return
+                time.sleep(0.1)
             
             # Press Enter to send message
+            if not self.running:
+                print("Start sequence cancelled - agent stopped")
+                return
             print("Step 5: Pressing Enter key to send message")
             self.mouse_controller.press_key('enter')
             print("✓ Enter key press succeeded")
@@ -197,6 +210,8 @@ class ScreenSpyAgent:
             print(f"Stack trace: {traceback.format_exc()}")
         finally:
             print("=== START SEQUENCE END ===")
+            # Always yield control back to the main thread briefly
+            time.sleep(0.1)
     
     def is_area2_inactive(self, screenshot_path):
         """
@@ -227,13 +242,6 @@ class ScreenSpyAgent:
             time_since_activity = current_time - self.last_activity_time
             print(f"Screen is empty. Time since last activity: {time_since_activity} seconds (threshold: {self.inactivity_threshold})")
             
-            # Handle the case where time_since_activity might be a mock in tests
-            # This allows tests to control the behavior with mock time values
-            if hasattr(time_since_activity, 'return_value'):
-                # In test case with a mock
-                print("Using mock time value for testing")
-                return True
-            
             # If inactive for more than the threshold, return True
             is_inactive = time_since_activity >= self.inactivity_threshold
             print(f"Area 2 inactive status: {is_inactive}")
@@ -241,9 +249,8 @@ class ScreenSpyAgent:
         except Exception as e:
             print(f"Error in is_area2_inactive: {e}")
             traceback.print_exc()
-            # For testing purposes, return True if there's an exception
-            # This helps tests pass when mocks are used
-            return True
+            # Don't automatically return True on exceptions
+            return False
     
     def agent_loop(self):
         """The agent's main loop."""
@@ -253,7 +260,15 @@ class ScreenSpyAgent:
         thread_local.image_analyzer = self.image_analyzer
         thread_local.mouse_controller = self.mouse_controller
         
-        # Always execute start sequence at the beginning of the agent loop
+        # Delay the initial start sequence to avoid blocking the UI
+        for _ in range(20):  # 2 seconds in smaller chunks
+            if not self.running:
+                return
+            time.sleep(0.1)
+        
+        # Execute start sequence after a short delay
+        if not self.running:
+            return
         print("Executing initial start sequence on agent startup...")
         self.execute_start_sequence()
         
@@ -272,6 +287,9 @@ class ScreenSpyAgent:
                 restart_cycle = False
                 
                 for i, screenshot_taker in enumerate(self.screenshot_takers):
+                    if not self.running:
+                        return
+                        
                     # Initialize variables with original coordinates first
                     original_x1 = screenshot_taker.x1
                     original_y1 = screenshot_taker.y1
@@ -371,7 +389,7 @@ class ScreenSpyAgent:
                 workflow_result = self.workflow.invoke(workflow_input)
                 
                 # Check for restart conditions and execute start sequence if needed
-                if restart_cycle and not any(detection_results[:1]) and i >= 2:  # If we didn't already restart for Area 0 or Area 2
+                if restart_cycle and not any(detection_results[:1]):  # If we didn't already restart for Area 0
                     # Execute the start sequence only if it wasn't executed in the loop
                     print("Final restart condition met - executing start sequence")
                     self.execute_start_sequence()
@@ -384,16 +402,23 @@ class ScreenSpyAgent:
                         print(f"Not executing final start sequence because restart_cycle={restart_cycle}")
                     if any(detection_results[:1]):
                         print(f"Not executing final start sequence because detection_results[:1]={detection_results[:1]}")
-                    if i < 2:
-                        print(f"Not executing final start sequence because i={i} < 2")
                 
                 # Pause before next iteration
-                time.sleep(self.interval)
+                start_sleep_time = time.time()
+                while time.time() - start_sleep_time < self.interval:
+                    if not self.running:
+                        return
+                    time.sleep(0.1)  # Sleep in small chunks to allow for quick termination
                 
             except Exception as e:
                 print(f"Error in agent loop: {e}")
                 traceback.print_exc()
-                time.sleep(self.interval)  # Still pause to avoid spinning too fast on errors
+                # Sleep in small chunks for quick termination
+                start_sleep_time = time.time()
+                while time.time() - start_sleep_time < self.interval:
+                    if not self.running:
+                        return
+                    time.sleep(0.1)
     
     def run_agent(self):
         """
@@ -402,16 +427,21 @@ class ScreenSpyAgent:
         if not self.running:
             self.running = True
             
+            # Create and start the thread with daemon=True to allow program to exit
             self.agent_thread = threading.Thread(target=self.agent_loop)
             self.agent_thread.daemon = True
             self.agent_thread.start()
+            
+            # Return immediately to avoid blocking the UI
+            return True
     
     def stop_agent(self):
         """Stop the agent's main loop."""
         if self.running:
             self.running = False
-            if self.agent_thread:
-                self.agent_thread.join(timeout=10)
+            print("Agent stop requested")
+            # Don't wait for the thread to join - just mark it as stopped
+            # The thread will terminate itself at the next checkpoint
             print("Agent stopped")
     
     def set_cyclic_prompt(self, prompt):
